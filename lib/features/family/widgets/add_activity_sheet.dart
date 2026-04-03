@@ -313,11 +313,13 @@ class _AddActivitySheetState extends State<AddActivitySheet> {
                 onPressed: () {
                   if (_titleController.text.isEmpty) return;
                   if (_recurrence == ActivityRecurrence.oneTime &&
-                      _specificDate == null)
+                      _specificDate == null) {
                     return;
+                  }
                   if (_recurrence == ActivityRecurrence.weekly &&
-                      _selectedWeekdays.isEmpty)
+                      _selectedWeekdays.isEmpty) {
                     return;
+                  }
 
                   final updated = WeeklyActivity(
                     id:
