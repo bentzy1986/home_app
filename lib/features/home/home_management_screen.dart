@@ -4,7 +4,7 @@ import '../finance/finance_screen.dart';
 import '../health/health_screen.dart';
 import '../shopping/shopping_screen.dart';
 import '../family/family_screen.dart';
-import 'home_details_screen.dart';
+import '../home/home_screen.dart';
 
 class HomeManagementScreen extends StatelessWidget {
   const HomeManagementScreen({super.key});

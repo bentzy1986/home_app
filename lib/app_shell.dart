@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'features/home_management/home_management_screen.dart';
+import 'features/home/home_management_screen.dart';
 
 class AppShell extends StatelessWidget {
   const AppShell({super.key});

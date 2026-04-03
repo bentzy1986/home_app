@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'features/family/family_state.dart';
-import 'features/home_management/home_management_screen.dart';
+import 'features/finance/finance_state.dart';
+import 'features/car/car_state.dart';
+import 'features/home/home_state.dart';
+import 'features/home/home_management_screen.dart';
 
 final FamilyState globalFamilyState = FamilyState();
+final FinanceState globalFinanceState = FinanceState();
+final CarState globalCarState = CarState();
+final HomeState globalHomeState = HomeState();
 
 void main() {
   runApp(const HomeManagerApp());
