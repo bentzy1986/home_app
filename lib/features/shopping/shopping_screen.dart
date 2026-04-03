@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/detail_list_item.dart';
 
 class ShoppingScreen extends StatelessWidget {
   const ShoppingScreen({super.key});
@@ -23,25 +24,25 @@ class ShoppingScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _buildDetailItem('רשימת מכולת', Icons.shopping_basket, Colors.orange),
-          _buildDetailItem('מלאי מזווה', Icons.inventory_2, Colors.brown),
-          _buildDetailItem('קניות לבית', Icons.chair, Colors.blueGrey),
+          DetailListItem(
+            title: 'רשימת מכולת',
+            icon: Icons.shopping_basket,
+            color: Colors.orange,
+            onTap: () {},
+          ),
+          DetailListItem(
+            title: 'מלאי מזווה',
+            icon: Icons.inventory_2,
+            color: Colors.brown,
+            onTap: () {},
+          ),
+          DetailListItem(
+            title: 'קניות לבית',
+            icon: Icons.chair,
+            color: Colors.blueGrey,
+            onTap: () {},
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDetailItem(String title, IconData icon, Color color) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 15),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.1),
-          child: Icon(icon, color: color),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       ),
     );
   }
