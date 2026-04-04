@@ -18,12 +18,16 @@ class _HomeDetailsScreenState extends State<HomeDetailsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _state.addListener(() => setState(() {}));
+    _state.addListener(_onStateChange);
+  }
+
+  void _onStateChange() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _state.removeListener(() => setState(() {}));
+    _state.removeListener(_onStateChange);
     _tabController.dispose();
     super.dispose();
   }

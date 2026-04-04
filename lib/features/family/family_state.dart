@@ -1,8 +1,113 @@
 import 'package:flutter/material.dart';
 import 'models/family_models.dart';
+import '../../services/storage_service.dart';
 
 class FamilyState extends ChangeNotifier {
-  final List<FamilyMember> members = [
+  List<FamilyMember> members = [];
+  List<FamilyEvent> events = [];
+  List<WeeklyActivity> activities = [];
+
+  // ====== Persistence ======
+  Future<void> loadFromStorage() async {
+    final membersData = StorageService.loadJson('family_members');
+    final eventsData = StorageService.loadJson('family_events');
+    final activitiesData = StorageService.loadJson('family_activities');
+
+    members = membersData != null
+        ? (membersData as List).map((m) => _memberFromJson(m)).toList()
+        : _defaultMembers();
+
+    events = eventsData != null
+        ? (eventsData as List).map((e) => _eventFromJson(e)).toList()
+        : _defaultEvents();
+
+    activities = activitiesData != null
+        ? (activitiesData as List).map((a) => _activityFromJson(a)).toList()
+        : _defaultActivities();
+
+    notifyListeners();
+  }
+
+  Future<void> _save() async {
+    await StorageService.saveJson(
+      'family_members',
+      members.map((m) => _memberToJson(m)).toList(),
+    );
+    await StorageService.saveJson(
+      'family_events',
+      events.map((e) => _eventToJson(e)).toList(),
+    );
+    await StorageService.saveJson(
+      'family_activities',
+      activities.map((a) => _activityToJson(a)).toList(),
+    );
+  }
+
+  // ====== Serialization ======
+  Map<String, dynamic> _memberToJson(FamilyMember m) => {
+    'id': m.id,
+    'name': m.name,
+    'color': m.color.toARGB32(),
+    'birthday': m.birthday?.toIso8601String(),
+  };
+
+  FamilyMember _memberFromJson(Map<String, dynamic> j) => FamilyMember(
+    id: j['id'],
+    name: j['name'],
+    color: Color(j['color']),
+    birthday: j['birthday'] != null ? DateTime.parse(j['birthday']) : null,
+  );
+
+  Map<String, dynamic> _eventToJson(FamilyEvent e) => {
+    'id': e.id,
+    'title': e.title,
+    'date': e.date.toIso8601String(),
+    'type': e.type.index,
+    'memberId': e.memberId,
+    'notes': e.notes,
+  };
+
+  FamilyEvent _eventFromJson(Map<String, dynamic> j) => FamilyEvent(
+    id: j['id'],
+    title: j['title'],
+    date: DateTime.parse(j['date']),
+    type: EventType.values[j['type']],
+    memberId: j['memberId'],
+    notes: j['notes'],
+  );
+
+  Map<String, dynamic> _activityToJson(WeeklyActivity a) => {
+    'id': a.id,
+    'title': a.title,
+    'recurrence': a.recurrence.index,
+    'weekdays': a.weekdays.map((d) => d.index).toList(),
+    'time': a.time,
+    'specificDate': a.specificDate?.toIso8601String(),
+    'memberId': a.memberId,
+    'location': a.location,
+    'cancelledDates': a.cancelledDates.map((d) => d.toIso8601String()).toList(),
+  };
+
+  WeeklyActivity _activityFromJson(Map<String, dynamic> j) => WeeklyActivity(
+    id: j['id'],
+    title: j['title'],
+    recurrence: ActivityRecurrence.values[j['recurrence']],
+    weekdays: (j['weekdays'] as List)
+        .map((d) => Weekday.values[d as int])
+        .toList(),
+    time: j['time'],
+    specificDate: j['specificDate'] != null
+        ? DateTime.parse(j['specificDate'])
+        : null,
+    memberId: j['memberId'],
+    location: j['location'],
+    cancelledDates: (j['cancelledDates'] as List)
+        .map((d) => DateTime.parse(d as String))
+        .toList(),
+  );
+
+  // ====== ברירות מחדל ======
+  List<FamilyMember> _defaultMembers() => [
     FamilyMember(
       id: '1',
       name: 'אבא',
@@ -29,7 +134,7 @@ class FamilyState extends ChangeNotifier {
     ),
   ];
 
-  final List<FamilyEvent> events = [
+  List<FamilyEvent> _defaultEvents() => [
     FamilyEvent(
       id: 'e1',
       title: 'יום הולדת ילד 1',
@@ -45,7 +150,7 @@ class FamilyState extends ChangeNotifier {
     ),
   ];
 
-  final List<WeeklyActivity> activities = [
+  List<WeeklyActivity> _defaultActivities() => [
     WeeklyActivity(
       id: 'a1',
       title: 'כדורגל',
@@ -66,6 +171,7 @@ class FamilyState extends ChangeNotifier {
     ),
   ];
 
+  // ====== Getters ======
   FamilyMember? getMember(String? id) {
     if (id == null) return null;
     try {
@@ -113,12 +219,10 @@ class FamilyState extends ChangeNotifier {
         .toList();
   }
 
-  // חוגים לפי תאריך ספציפי (כולל ביטולים)
   List<WeeklyActivity> activitiesForDate(DateTime date) {
     return activities.where((a) => a.occursOn(date)).toList();
   }
 
-  // לצורך הלוח — כל החוגים ביום בשבוע (ללא סינון ביטולים)
   List<WeeklyActivity> activitiesForWeekday(int flutterWeekday) {
     return activities
         .where(
@@ -129,8 +233,10 @@ class FamilyState extends ChangeNotifier {
         .toList();
   }
 
+  // ====== פעולות ======
   void addEvent(FamilyEvent event) {
     events.add(event);
+    _save();
     notifyListeners();
   }
 
@@ -138,17 +244,20 @@ class FamilyState extends ChangeNotifier {
     final i = events.indexWhere((e) => e.id == updated.id);
     if (i != -1) {
       events[i] = updated;
+      _save();
       notifyListeners();
     }
   }
 
   void deleteEvent(String id) {
     events.removeWhere((e) => e.id == id);
+    _save();
     notifyListeners();
   }
 
   void addActivity(WeeklyActivity activity) {
     activities.add(activity);
+    _save();
     notifyListeners();
   }
 
@@ -156,11 +265,11 @@ class FamilyState extends ChangeNotifier {
     final i = activities.indexWhere((a) => a.id == updated.id);
     if (i != -1) {
       activities[i] = updated;
+      _save();
       notifyListeners();
     }
   }
 
-  // ביטול חד פעמי בתאריך ספציפי
   void cancelActivityOnDate(String id, DateTime date) {
     final i = activities.indexWhere((a) => a.id == id);
     if (i == -1) return;
@@ -178,10 +287,10 @@ class FamilyState extends ChangeNotifier {
       location: a.location,
       cancelledDates: newDates,
     );
+    _save();
     notifyListeners();
   }
 
-  // מחיקת יום ספציפי מחוג שבועי
   void deleteActivityDay(String id, Weekday day) {
     final i = activities.indexWhere((a) => a.id == id);
     if (i == -1) return;
@@ -201,17 +310,19 @@ class FamilyState extends ChangeNotifier {
         cancelledDates: a.cancelledDates,
       );
     }
+    _save();
     notifyListeners();
   }
 
-  // מחיקת החוג לגמרי
   void deleteActivity(String id) {
     activities.removeWhere((a) => a.id == id);
+    _save();
     notifyListeners();
   }
 
   void addMember(FamilyMember member) {
     members.add(member);
+    _save();
     notifyListeners();
   }
 
@@ -219,6 +330,7 @@ class FamilyState extends ChangeNotifier {
     final i = members.indexWhere((m) => m.id == updated.id);
     if (i != -1) {
       members[i] = updated;
+      _save();
       notifyListeners();
     }
   }

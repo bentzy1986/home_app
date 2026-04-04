@@ -5,6 +5,7 @@ import '../health/health_screen.dart';
 import '../shopping/shopping_screen.dart';
 import '../family/family_screen.dart';
 import '../home/home_screen.dart';
+import '../../main.dart';
 
 class HomeManagementScreen extends StatefulWidget {
   const HomeManagementScreen({super.key});
@@ -29,58 +30,123 @@ class _HomeManagementScreenState extends State<HomeManagementScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+
+    // האזנה לשינויים בכל הסטייטים
+    globalHomeState.addListener(() => setState(() {}));
+    globalCarState.addListener(() => setState(() {}));
+    globalFinanceState.addListener(() => setState(() {}));
+    globalHealthState.addListener(() => setState(() {}));
+    globalFamilyState.addListener(() => setState(() {}));
+    globalShoppingState.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
+    globalHomeState.removeListener(() => setState(() {}));
+    globalCarState.removeListener(() => setState(() {}));
+    globalFinanceState.removeListener(() => setState(() {}));
+    globalHealthState.removeListener(() => setState(() {}));
+    globalFamilyState.removeListener(() => setState(() {}));
+    globalShoppingState.removeListener(() => setState(() {}));
     _fadeController.dispose();
     super.dispose();
   }
 
-  final List<_ModuleItem> _modules = [
-    _ModuleItem(
-      title: 'ניהול הבית',
-      subtitle: '4 משימות פתוחות',
-      icon: Icons.villa_rounded,
-      gradient: [Color(0xFF5856D6), Color(0xFFAF52DE)],
-      page: HomeDetailsScreen(),
-    ),
-    _ModuleItem(
-      title: 'הרכב שלי',
-      subtitle: 'טסט בעוד 45 יום',
-      icon: Icons.directions_car_filled_rounded,
-      gradient: [Color(0xFFFF3B30), Color(0xFFFF6B35)],
-      page: CarScreen(),
-    ),
-    _ModuleItem(
-      title: 'פיננסים',
-      subtitle: 'יתרה ₪6,600',
-      icon: Icons.show_chart_rounded,
-      gradient: [Color(0xFF34C759), Color(0xFF30D158)],
-      page: FinanceScreen(),
-    ),
-    _ModuleItem(
-      title: 'בריאות',
-      subtitle: 'תור מחר',
-      icon: Icons.monitor_heart_rounded,
-      gradient: [Color(0xFFFF2D55), Color(0xFFFF6B8A)],
-      page: HealthScreen(),
-    ),
-    _ModuleItem(
-      title: 'משפחה',
-      subtitle: '3 אירועים קרובים',
-      icon: Icons.diversity_3_rounded,
-      gradient: [Color(0xFF007AFF), Color(0xFF5AC8FA)],
-      page: FamilyScreen(),
-    ),
-    _ModuleItem(
-      title: 'קניות',
-      subtitle: '8 פריטים ברשימה',
-      icon: Icons.shopping_bag_rounded,
-      gradient: [Color(0xFFFF9500), Color(0xFFFFCC00)],
-      page: ShoppingScreen(),
-    ),
-  ];
+  List<_ModuleItem> get _modules {
+    // ====== בית ======
+    final openTasks = globalHomeState.totalOpenTasks;
+    final homeSubtitle = openTasks > 0
+        ? '$openTasks משימות פתוחות'
+        : 'הכל מסודר ✓';
+
+    // ====== רכב ======
+    final urgentDocs = globalCarState.cars
+        .expand((c) => c.documents)
+        .where((d) => d.isUrgent || d.isExpired)
+        .length;
+    final carSubtitle = urgentDocs > 0
+        ? '$urgentDocs מסמכים דורשים תשומת לב'
+        : '${globalCarState.cars.length} רכב${globalCarState.cars.length != 1 ? 'ים' : ''}';
+
+    // ====== פיננסים ======
+    final balance = globalFinanceState.balance;
+    final financeSubtitle = balance >= 0
+        ? 'יתרה ₪${balance.toStringAsFixed(0)}'
+        : 'גירעון ₪${balance.abs().toStringAsFixed(0)}';
+
+    // ====== בריאות ======
+    final upcoming = globalHealthState.upcomingAppointments;
+    String healthSubtitle;
+    if (upcoming.isEmpty) {
+      healthSubtitle = 'אין תורים קרובים';
+    } else {
+      final days = upcoming.first.daysLeft;
+      if (days == 0) {
+        healthSubtitle = 'תור היום!';
+      } else if (days == 1) {
+        healthSubtitle = 'תור מחר';
+      } else {
+        healthSubtitle = 'תור בעוד $days ימים';
+      }
+    }
+
+    // ====== משפחה ======
+    final upcomingEvents = globalFamilyState.upcomingEvents.length;
+    final familySubtitle = upcomingEvents > 0
+        ? '$upcomingEvents אירועים קרובים'
+        : 'אין אירועים קרובים';
+
+    // ====== קניות ======
+    final itemsToBuy = globalShoppingState.totalItemsToBuy;
+    final shoppingSubtitle = itemsToBuy > 0
+        ? '$itemsToBuy פריטים לקנייה'
+        : 'הרשימה ריקה ✓';
+
+    return [
+      _ModuleItem(
+        title: 'ניהול הבית',
+        subtitle: homeSubtitle,
+        icon: Icons.villa_rounded,
+        gradient: const [Color(0xFF5856D6), Color(0xFFAF52DE)],
+        page: const HomeDetailsScreen(),
+      ),
+      _ModuleItem(
+        title: 'הרכב שלי',
+        subtitle: carSubtitle,
+        icon: Icons.directions_car_filled_rounded,
+        gradient: const [Color(0xFFFF3B30), Color(0xFFFF6B35)],
+        page: const CarScreen(),
+      ),
+      _ModuleItem(
+        title: 'פיננסים',
+        subtitle: financeSubtitle,
+        icon: Icons.show_chart_rounded,
+        gradient: const [Color(0xFF34C759), Color(0xFF30D158)],
+        page: const FinanceScreen(),
+      ),
+      _ModuleItem(
+        title: 'בריאות',
+        subtitle: healthSubtitle,
+        icon: Icons.monitor_heart_rounded,
+        gradient: const [Color(0xFFFF2D55), Color(0xFFFF6B8A)],
+        page: const HealthScreen(),
+      ),
+      _ModuleItem(
+        title: 'משפחה',
+        subtitle: familySubtitle,
+        icon: Icons.diversity_3_rounded,
+        gradient: const [Color(0xFF007AFF), Color(0xFF5AC8FA)],
+        page: const FamilyScreen(),
+      ),
+      _ModuleItem(
+        title: 'קניות',
+        subtitle: shoppingSubtitle,
+        icon: Icons.shopping_cart_rounded, // ← שנה כאן
+        gradient: const [Color(0xFFFF9500), Color(0xFFFFCC00)],
+        page: const ShoppingScreen(),
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +301,6 @@ class _HomeManagementScreenState extends State<HomeManagementScreen>
         ),
         child: Stack(
           children: [
-            // עיגולים דקורטיביים
             Positioned(
               bottom: -25,
               right: -25,
@@ -260,13 +325,11 @@ class _HomeManagementScreenState extends State<HomeManagementScreen>
                 ),
               ),
             ),
-            // תוכן
             Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // אייקון גדול עם גרדיאנט
                   Container(
                     width: 62,
                     height: 62,
@@ -288,7 +351,6 @@ class _HomeManagementScreenState extends State<HomeManagementScreen>
                     child: Icon(module.icon, color: Colors.white, size: 34),
                   ),
                   const Spacer(),
-                  // שם הנושא — גדול ובולט
                   Text(
                     module.title,
                     style: const TextStyle(
@@ -299,7 +361,6 @@ class _HomeManagementScreenState extends State<HomeManagementScreen>
                     ),
                   ),
                   const SizedBox(height: 5),
-                  // תת כותרת — בולטת יותר
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,

@@ -1,8 +1,124 @@
 import 'package:flutter/material.dart';
 import 'models/car_models.dart';
+import '../../services/storage_service.dart';
 
 class CarState extends ChangeNotifier {
-  final List<CarModel> cars = [
+  List<CarModel> cars = [];
+  int _currentIndex = 0;
+
+  CarModel get currentCar => cars[_currentIndex];
+  int get currentIndex => _currentIndex;
+
+  // ====== Persistence ======
+  Future<void> loadFromStorage() async {
+    final carsData = StorageService.loadJson('car_cars');
+
+    cars = carsData != null
+        ? (carsData as List).map((c) => _carFromJson(c)).toList()
+        : _defaultCars();
+
+    if (_currentIndex >= cars.length) _currentIndex = 0;
+    notifyListeners();
+  }
+
+  Future<void> _save() async {
+    await StorageService.saveJson(
+      'car_cars',
+      cars.map((c) => _carToJson(c)).toList(),
+    );
+  }
+
+  // ====== Serialization ======
+  Map<String, dynamic> _carToJson(CarModel c) => {
+    'id': c.id,
+    'nickname': c.nickname,
+    'plate': c.plate,
+    'brand': c.brand,
+    'model': c.model,
+    'year': c.year,
+    'fuelType': c.fuelType.index,
+    'currentMileage': c.currentMileage,
+    'documents': c.documents.map((d) => _docToJson(d)).toList(),
+    'serviceHistory': c.serviceHistory.map((s) => _recordToJson(s)).toList(),
+    'reminders': c.reminders.map((r) => _reminderToJson(r)).toList(),
+  };
+
+  CarModel _carFromJson(Map<String, dynamic> j) => CarModel(
+    id: j['id'],
+    nickname: j['nickname'],
+    plate: j['plate'],
+    brand: j['brand'],
+    model: j['model'],
+    year: j['year'],
+    fuelType: FuelType.values[j['fuelType']],
+    currentMileage: j['currentMileage'],
+    documents: (j['documents'] as List).map((d) => _docFromJson(d)).toList(),
+    serviceHistory: (j['serviceHistory'] as List)
+        .map((s) => _recordFromJson(s))
+        .toList(),
+    reminders: (j['reminders'] as List)
+        .map((r) => _reminderFromJson(r))
+        .toList(),
+  );
+
+  Map<String, dynamic> _docToJson(CarDocument d) => {
+    'id': d.id,
+    'title': d.title,
+    'expiryDate': d.expiryDate.toIso8601String(),
+    'iconCode': d.icon.codePoint,
+    'colorValue': d.color.toARGB32(),
+  };
+
+  CarDocument _docFromJson(Map<String, dynamic> j) => CarDocument(
+    id: j['id'],
+    title: j['title'],
+    expiryDate: DateTime.parse(j['expiryDate']),
+    icon: IconData(j['iconCode'], fontFamily: 'MaterialIcons'),
+    color: Color(j['colorValue']),
+  );
+
+  Map<String, dynamic> _recordToJson(ServiceRecord s) => {
+    'id': s.id,
+    'title': s.title,
+    'type': s.type.index,
+    'date': s.date.toIso8601String(),
+    'cost': s.cost,
+    'mileage': s.mileage,
+    'garage': s.garage,
+    'notes': s.notes,
+  };
+
+  ServiceRecord _recordFromJson(Map<String, dynamic> j) => ServiceRecord(
+    id: j['id'],
+    title: j['title'],
+    type: ServiceType.values[j['type']],
+    date: DateTime.parse(j['date']),
+    cost: (j['cost'] as num).toDouble(),
+    mileage: j['mileage'],
+    garage: j['garage'],
+    notes: j['notes'],
+  );
+
+  Map<String, dynamic> _reminderToJson(ServiceReminder r) => {
+    'id': r.id,
+    'title': r.title,
+    'type': r.type.index,
+    'dueDate': r.dueDate.toIso8601String(),
+    'dueMileage': r.dueMileage,
+    'isDone': r.isDone,
+  };
+
+  ServiceReminder _reminderFromJson(Map<String, dynamic> j) => ServiceReminder(
+    id: j['id'],
+    title: j['title'],
+    type: ServiceType.values[j['type']],
+    dueDate: DateTime.parse(j['dueDate']),
+    dueMileage: j['dueMileage'],
+    isDone: j['isDone'] ?? false,
+  );
+
+  // ====== ברירות מחדל ======
+  List<CarModel> _defaultCars() => [
     CarModel(
       id: 'c1',
       nickname: 'יונדאי משפחתית',
@@ -127,11 +243,7 @@ class CarState extends ChangeNotifier {
     ),
   ];
 
-  int _currentIndex = 0;
-
-  CarModel get currentCar => cars[_currentIndex];
-  int get currentIndex => _currentIndex;
-
+  // ====== פעולות ======
   void switchCar(int index) {
     if (index >= 0 && index < cars.length) {
       _currentIndex = index;
@@ -141,6 +253,7 @@ class CarState extends ChangeNotifier {
 
   void addCar(CarModel car) {
     cars.add(car);
+    _save();
     notifyListeners();
   }
 
@@ -148,6 +261,7 @@ class CarState extends ChangeNotifier {
     final i = cars.indexWhere((c) => c.id == updated.id);
     if (i != -1) {
       cars[i] = updated;
+      _save();
       notifyListeners();
     }
   }
@@ -155,24 +269,28 @@ class CarState extends ChangeNotifier {
   void deleteCar(String id) {
     cars.removeWhere((c) => c.id == id);
     if (_currentIndex >= cars.length) _currentIndex = cars.length - 1;
+    _save();
     notifyListeners();
   }
 
   void addServiceRecord(String carId, ServiceRecord record) {
     final car = cars.firstWhere((c) => c.id == carId);
     car.serviceHistory.insert(0, record);
+    _save();
     notifyListeners();
   }
 
   void deleteServiceRecord(String carId, String recordId) {
     final car = cars.firstWhere((c) => c.id == carId);
     car.serviceHistory.removeWhere((s) => s.id == recordId);
+    _save();
     notifyListeners();
   }
 
   void addReminder(String carId, ServiceReminder reminder) {
     final car = cars.firstWhere((c) => c.id == carId);
     car.reminders.add(reminder);
+    _save();
     notifyListeners();
   }
 
@@ -180,12 +298,14 @@ class CarState extends ChangeNotifier {
     final car = cars.firstWhere((c) => c.id == carId);
     final reminder = car.reminders.firstWhere((r) => r.id == reminderId);
     reminder.isDone = !reminder.isDone;
+    _save();
     notifyListeners();
   }
 
   void deleteReminder(String carId, String reminderId) {
     final car = cars.firstWhere((c) => c.id == carId);
     car.reminders.removeWhere((r) => r.id == reminderId);
+    _save();
     notifyListeners();
   }
 
@@ -194,6 +314,7 @@ class CarState extends ChangeNotifier {
     final i = car.documents.indexWhere((d) => d.id == updated.id);
     if (i != -1) {
       car.documents[i] = updated;
+      _save();
       notifyListeners();
     }
   }
@@ -201,10 +322,10 @@ class CarState extends ChangeNotifier {
   void updateMileage(String carId, int mileage) {
     final car = cars.firstWhere((c) => c.id == carId);
     car.currentMileage = mileage;
+    _save();
     notifyListeners();
   }
 
-  // כל התזכורות הדחופות מכל הרכבים
   List<Map<String, dynamic>> get allUrgentReminders {
     final result = <Map<String, dynamic>>[];
     for (final car in cars) {
@@ -217,7 +338,6 @@ class CarState extends ChangeNotifier {
     return result;
   }
 
-  // כל המסמכים הדחופים מכל הרכבים
   List<Map<String, dynamic>> get allUrgentDocuments {
     final result = <Map<String, dynamic>>[];
     for (final car in cars) {

@@ -22,12 +22,16 @@ class _FamilyScreenState extends State<FamilyScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _state.addListener(() => setState(() {}));
+    _state.addListener(_onStateChange);
+  }
+
+  void _onStateChange() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _state.removeListener(() => setState(() {}));
+    _state.removeListener(_onStateChange);
     _tabController.dispose();
     super.dispose();
   }

@@ -19,15 +19,19 @@ class _ShoppingScreenState extends State<ShoppingScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _state.addListener(() => setState(() {}));
+    _state.addListener(_onStateChange);
     if (_state.lists.isNotEmpty) {
       _selectedListId = _state.lists.first.id;
     }
   }
 
+  void _onStateChange() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
-    _state.removeListener(() => setState(() {}));
+    _state.removeListener(_onStateChange);
     _tabController.dispose();
     super.dispose();
   }

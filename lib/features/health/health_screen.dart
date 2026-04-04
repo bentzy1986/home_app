@@ -19,12 +19,16 @@ class _HealthScreenState extends State<HealthScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _state.addListener(() => setState(() {}));
+    _state.addListener(_onStateChange);
+  }
+
+  void _onStateChange() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _state.removeListener(() => setState(() {}));
+    _state.removeListener(_onStateChange);
     _tabController.dispose();
     super.dispose();
   }
@@ -155,7 +159,6 @@ class _HealthScreenState extends State<HealthScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // כרטיסי סיכום
           Row(
             children: [
               Expanded(
@@ -190,8 +193,6 @@ class _HealthScreenState extends State<HealthScreen>
             ],
           ),
           const SizedBox(height: 20),
-
-          // תורים קרובים
           if (upcoming.isNotEmpty) ...[
             _sectionHeader(
               'תורים קרובים',
@@ -202,12 +203,20 @@ class _HealthScreenState extends State<HealthScreen>
             ...upcoming.map((a) => _buildAppointmentTile(a)),
             const SizedBox(height: 16),
           ],
-
-          // בני משפחה
-          _sectionHeader(
-            'בני המשפחה',
-            Icons.people_rounded,
-            const Color(0xFFEB3349),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _sectionHeader(
+                'בני המשפחה',
+                Icons.people_rounded,
+                const Color(0xFFEB3349),
+              ),
+              TextButton.icon(
+                onPressed: _showManageMembersSheet,
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('ערוך'),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           ..._state.members.map((m) {
@@ -215,7 +224,7 @@ class _HealthScreenState extends State<HealthScreen>
                 .appointmentsForMember(m.id)
                 .where((a) => !a.isDone)
                 .length;
-            final memberMeds = activeMedications
+            final memberMeds = _state.activeMedications
                 .where((med) => med.memberId == m.id)
                 .length;
             return Card(
@@ -264,9 +273,6 @@ class _HealthScreenState extends State<HealthScreen>
       ),
     );
   }
-
-  List<Medication> get activeMedications =>
-      _state.medications.where((m) => m.isActive).toList();
 
   Widget _summaryCard(
     IconData icon,
@@ -882,6 +888,274 @@ class _HealthScreenState extends State<HealthScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showManageMembersSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModal) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 25,
+            right: 25,
+            top: 25,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'בני המשפחה',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _showAddEditMemberSheet(null);
+                    },
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('הוסף'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ..._state.members.map(
+                (m) => ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: m.color,
+                    child: Text(
+                      m.name[0],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    m.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: m.age != null ? Text('גיל ${m.age}') : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.edit_outlined,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showAddEditMemberSheet(m);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                        onPressed: () {
+                          _state.deleteMember(m.id);
+                          setModal(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddEditMemberSheet(HealthMember? member) {
+    final nameController = TextEditingController(text: member?.name ?? '');
+    DateTime? birthDate = member?.birthDate;
+    Color selectedColor = member?.color ?? const Color(0xFF2193B0);
+
+    final colors = [
+      const Color(0xFF2193B0),
+      const Color(0xFFEB3349),
+      const Color(0xFF11998E),
+      const Color(0xFFF7971E),
+      const Color(0xFF4A00E0),
+      const Color(0xFF9C27B0),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModal) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 25,
+            right: 25,
+            top: 25,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  member == null ? 'בן משפחה חדש' : 'עריכת ${member.name}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: nameController,
+                  textAlign: TextAlign.right,
+                  decoration: const InputDecoration(
+                    labelText: 'שם',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate:
+                          birthDate ??
+                          DateTime.now().subtract(
+                            const Duration(days: 365 * 10),
+                          ),
+                      firstDate: DateTime(1900),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setModal(() => birthDate = picked);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Icon(Icons.cake_rounded, size: 18),
+                        Text(
+                          birthDate != null
+                              ? '${birthDate!.day}/${birthDate!.month}/${birthDate!.year}'
+                              : 'תאריך לידה (אופציונלי)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: birthDate != null
+                                ? Colors.black
+                                : Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'צבע:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 10,
+                  children: colors.map((c) {
+                    final isSelected = selectedColor == c;
+                    return GestureDetector(
+                      onTap: () => setModal(() => selectedColor = c),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                          border: isSelected
+                              ? Border.all(color: Colors.black, width: 3)
+                              : null,
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 18,
+                              )
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEB3349),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    onPressed: () {
+                      if (nameController.text.isEmpty) return;
+                      if (member == null) {
+                        _state.addMember(
+                          HealthMember(
+                            id: DateTime.now().millisecondsSinceEpoch
+                                .toString(),
+                            name: nameController.text,
+                            color: selectedColor,
+                            birthDate: birthDate,
+                          ),
+                        );
+                      } else {
+                        _state.updateMember(
+                          HealthMember(
+                            id: member.id,
+                            name: nameController.text,
+                            color: selectedColor,
+                            birthDate: birthDate,
+                          ),
+                        );
+                      }
+                      Navigator.pop(ctx);
+                    },
+                    child: Text(
+                      member == null ? 'הוסף' : 'שמור שינויים',
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
         ),
       ),
     );

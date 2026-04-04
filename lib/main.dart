@@ -6,6 +6,7 @@ import 'features/home/home_state.dart';
 import 'features/health/health_state.dart';
 import 'features/shopping/shopping_state.dart';
 import 'features/home/home_management_screen.dart';
+import 'services/storage_service.dart';
 
 final FamilyState globalFamilyState = FamilyState();
 final FinanceState globalFinanceState = FinanceState();
@@ -14,7 +15,18 @@ final HomeState globalHomeState = HomeState();
 final HealthState globalHealthState = HealthState();
 final ShoppingState globalShoppingState = ShoppingState();
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await StorageService.init();
+
+  // טעינת נתונים מהאחסון
+  await globalFamilyState.loadFromStorage();
+  await globalFinanceState.loadFromStorage();
+  await globalCarState.loadFromStorage();
+  await globalHomeState.loadFromStorage();
+  await globalHealthState.loadFromStorage();
+  await globalShoppingState.loadFromStorage();
+
   runApp(const HomeManagerApp());
 }
 

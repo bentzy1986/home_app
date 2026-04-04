@@ -1,8 +1,103 @@
 import 'package:flutter/material.dart';
 import 'models/shopping_models.dart';
+import '../../services/storage_service.dart';
 
 class ShoppingState extends ChangeNotifier {
-  final List<ShoppingList> lists = [
+  List<ShoppingList> lists = [];
+  List<PantryItem> pantry = [];
+
+  // ====== Persistence ======
+  Future<void> loadFromStorage() async {
+    final listsData = StorageService.loadJson('shopping_lists');
+    final pantryData = StorageService.loadJson('shopping_pantry');
+
+    if (listsData != null) {
+      lists = (listsData as List).map((l) => _listFromJson(l)).toList();
+    } else {
+      lists = _defaultLists();
+    }
+
+    if (pantryData != null) {
+      pantry = (pantryData as List).map((p) => _pantryFromJson(p)).toList();
+    } else {
+      pantry = _defaultPantry();
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> _save() async {
+    await StorageService.saveJson(
+      'shopping_lists',
+      lists.map((l) => _listToJson(l)).toList(),
+    );
+    await StorageService.saveJson(
+      'shopping_pantry',
+      pantry.map((p) => _pantryToJson(p)).toList(),
+    );
+  }
+
+  // ====== Serialization ======
+  Map<String, dynamic> _listToJson(ShoppingList l) => {
+    'id': l.id,
+    'name': l.name,
+    'type': l.type.index,
+    'createdAt': l.createdAt.toIso8601String(),
+    'isActive': l.isActive,
+    'items': l.items.map((i) => _itemToJson(i)).toList(),
+  };
+
+  ShoppingList _listFromJson(Map<String, dynamic> j) => ShoppingList(
+    id: j['id'],
+    name: j['name'],
+    type: ListType.values[j['type']],
+    createdAt: DateTime.parse(j['createdAt']),
+    isActive: j['isActive'] ?? true,
+    items: (j['items'] as List).map((i) => _itemFromJson(i)).toList(),
+  );
+
+  Map<String, dynamic> _itemToJson(ShoppingItem i) => {
+    'id': i.id,
+    'name': i.name,
+    'category': i.category.index,
+    'quantity': i.quantity,
+    'unit': i.unit,
+    'isChecked': i.isChecked,
+    'price': i.price,
+    'isPantryItem': i.isPantryItem,
+  };
+
+  ShoppingItem _itemFromJson(Map<String, dynamic> j) => ShoppingItem(
+    id: j['id'],
+    name: j['name'],
+    category: ShoppingCategory.values[j['category']],
+    quantity: j['quantity']?.toDouble(),
+    unit: j['unit'],
+    isChecked: j['isChecked'] ?? false,
+    price: j['price']?.toDouble(),
+    isPantryItem: j['isPantryItem'] ?? false,
+  );
+
+  Map<String, dynamic> _pantryToJson(PantryItem p) => {
+    'id': p.id,
+    'name': p.name,
+    'category': p.category.index,
+    'quantity': p.quantity,
+    'minQuantity': p.minQuantity,
+    'unit': p.unit,
+  };
+
+  PantryItem _pantryFromJson(Map<String, dynamic> j) => PantryItem(
+    id: j['id'],
+    name: j['name'],
+    category: ShoppingCategory.values[j['category']],
+    quantity: j['quantity'],
+    minQuantity: j['minQuantity'],
+    unit: j['unit'],
+  );
+
+  // ====== ברירות מחדל ======
+  List<ShoppingList> _defaultLists() => [
     ShoppingList(
       id: 'l1',
       name: 'קניות שבועיות',
@@ -69,7 +164,7 @@ class ShoppingState extends ChangeNotifier {
     ),
   ];
 
-  final List<PantryItem> pantry = [
+  List<PantryItem> _defaultPantry() => [
     PantryItem(
       id: 'p1',
       name: 'שמן זית',
@@ -120,6 +215,7 @@ class ShoppingState extends ChangeNotifier {
     ),
   ];
 
+  // ====== Getters ======
   ShoppingList? get activeList => lists.where((l) => l.isActive).isNotEmpty
       ? lists.where((l) => l.isActive).first
       : null;
@@ -132,23 +228,27 @@ class ShoppingState extends ChangeNotifier {
   // ====== פעולות רשימות ======
   void addList(ShoppingList list) {
     lists.add(list);
+    _save();
     notifyListeners();
   }
 
   void deleteList(String id) {
     lists.removeWhere((l) => l.id == id);
+    _save();
     notifyListeners();
   }
 
   void renameList(String id, String name) {
     final l = lists.firstWhere((l) => l.id == id);
     l.name = name;
+    _save();
     notifyListeners();
   }
 
   void clearChecked(String listId) {
     final l = lists.firstWhere((l) => l.id == listId);
     l.items.removeWhere((i) => i.isChecked);
+    _save();
     notifyListeners();
   }
 
@@ -157,6 +257,7 @@ class ShoppingState extends ChangeNotifier {
     for (final item in l.items) {
       item.isChecked = false;
     }
+    _save();
     notifyListeners();
   }
 
@@ -164,6 +265,7 @@ class ShoppingState extends ChangeNotifier {
   void addItem(String listId, ShoppingItem item) {
     final l = lists.firstWhere((l) => l.id == listId);
     l.items.add(item);
+    _save();
     notifyListeners();
   }
 
@@ -171,12 +273,14 @@ class ShoppingState extends ChangeNotifier {
     final l = lists.firstWhere((l) => l.id == listId);
     final item = l.items.firstWhere((i) => i.id == itemId);
     item.isChecked = !item.isChecked;
+    _save();
     notifyListeners();
   }
 
   void deleteItem(String listId, String itemId) {
     final l = lists.firstWhere((l) => l.id == listId);
     l.items.removeWhere((i) => i.id == itemId);
+    _save();
     notifyListeners();
   }
 
@@ -185,6 +289,7 @@ class ShoppingState extends ChangeNotifier {
     final i = l.items.indexWhere((item) => item.id == updated.id);
     if (i != -1) {
       l.items[i] = updated;
+      _save();
       notifyListeners();
     }
   }
@@ -192,17 +297,20 @@ class ShoppingState extends ChangeNotifier {
   // ====== פעולות מזווה ======
   void addPantryItem(PantryItem item) {
     pantry.add(item);
+    _save();
     notifyListeners();
   }
 
   void updatePantryQuantity(String id, int quantity) {
     final p = pantry.firstWhere((p) => p.id == id);
     p.quantity = quantity;
+    _save();
     notifyListeners();
   }
 
   void deletePantryItem(String id) {
     pantry.removeWhere((p) => p.id == id);
+    _save();
     notifyListeners();
   }
 
@@ -223,6 +331,7 @@ class ShoppingState extends ChangeNotifier {
         );
       }
     }
+    _save();
     notifyListeners();
   }
 }
