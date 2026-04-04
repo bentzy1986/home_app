@@ -3,12 +3,16 @@ import 'features/family/family_state.dart';
 import 'features/finance/finance_state.dart';
 import 'features/car/car_state.dart';
 import 'features/home/home_state.dart';
+import 'features/health/health_state.dart';
+import 'features/shopping/shopping_state.dart';
 import 'features/home/home_management_screen.dart';
 
 final FamilyState globalFamilyState = FamilyState();
 final FinanceState globalFinanceState = FinanceState();
 final CarState globalCarState = CarState();
 final HomeState globalHomeState = HomeState();
+final HealthState globalHealthState = HealthState();
+final ShoppingState globalShoppingState = ShoppingState();
 
 void main() {
   runApp(const HomeManagerApp());

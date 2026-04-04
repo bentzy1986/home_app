@@ -6,232 +6,319 @@ import '../shopping/shopping_screen.dart';
 import '../family/family_screen.dart';
 import '../home/home_screen.dart';
 
-class HomeManagementScreen extends StatelessWidget {
+class HomeManagementScreen extends StatefulWidget {
   const HomeManagementScreen({super.key});
+  @override
+  State<HomeManagementScreen> createState() => _HomeManagementScreenState();
+}
+
+class _HomeManagementScreenState extends State<HomeManagementScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 700),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
+    _fadeController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  final List<_ModuleItem> _modules = [
+    _ModuleItem(
+      title: 'ניהול הבית',
+      subtitle: '4 משימות פתוחות',
+      icon: Icons.villa_rounded,
+      gradient: [Color(0xFF5856D6), Color(0xFFAF52DE)],
+      page: HomeDetailsScreen(),
+    ),
+    _ModuleItem(
+      title: 'הרכב שלי',
+      subtitle: 'טסט בעוד 45 יום',
+      icon: Icons.directions_car_filled_rounded,
+      gradient: [Color(0xFFFF3B30), Color(0xFFFF6B35)],
+      page: CarScreen(),
+    ),
+    _ModuleItem(
+      title: 'פיננסים',
+      subtitle: 'יתרה ₪6,600',
+      icon: Icons.show_chart_rounded,
+      gradient: [Color(0xFF34C759), Color(0xFF30D158)],
+      page: FinanceScreen(),
+    ),
+    _ModuleItem(
+      title: 'בריאות',
+      subtitle: 'תור מחר',
+      icon: Icons.monitor_heart_rounded,
+      gradient: [Color(0xFFFF2D55), Color(0xFFFF6B8A)],
+      page: HealthScreen(),
+    ),
+    _ModuleItem(
+      title: 'משפחה',
+      subtitle: '3 אירועים קרובים',
+      icon: Icons.diversity_3_rounded,
+      gradient: [Color(0xFF007AFF), Color(0xFF5AC8FA)],
+      page: FamilyScreen(),
+    ),
+    _ModuleItem(
+      title: 'קניות',
+      subtitle: '8 פריטים ברשימה',
+      icon: Icons.shopping_bag_rounded,
+      gradient: [Color(0xFFFF9500), Color(0xFFFFCC00)],
+      page: ShoppingScreen(),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      body: Column(
-        children: [
-          // בר עליון שחור
-          Container(
-            padding: const EdgeInsets.only(top: 60, bottom: 25),
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1A1A1A),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(40),
-                bottomRight: Radius.circular(40),
-              ),
-            ),
-            child: const Center(
-              child: Text(
-                'שולחן עבודה',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'בוקר טוב'
+        : hour < 17
+        ? 'צהריים טובים'
+        : 'ערב טוב';
 
-          // כרטיס פרופיל (צמצמנו קצת את ה-Margin כדי לתת מקום לריבועים)
-          Transform.translate(
-            offset: const Offset(0, -15),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: const Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: Color(0xFFE3F2FD),
-                    child: Icon(
-                      Icons.account_circle,
-                      color: Color(0xFF1976D2),
-                      size: 28,
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1A3A6B),
+              Color(0xFF1B4F9E),
+              Color(0xFF2563C4),
+              Color(0xFF1E88D4),
+            ],
+            stops: [0.0, 0.35, 0.7, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Column(
+              children: [
+                // ====== כותרת ======
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'שלום בן,',
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$greeting, בן',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'שולחן עבודה',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'מה התוכנית להיום?',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.2),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.4),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.person_outline_rounded,
+                          color: Colors.white,
+                          size: 22,
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
+                ),
 
-          // רשת הכפתורים - כיסוי שטח מקסימלי
-          Expanded(
-            child: GridView.count(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 15,
-                vertical: 10,
-              ), // צמצום רווחים מהצדדים
-              crossAxisCount: 2,
-              mainAxisSpacing: 15, // רווח אנכי בין ריבועים
-              crossAxisSpacing: 15, // רווח אופקי בין ריבועים
-              childAspectRatio:
-                  0.88, // הקטנת המספר הופכת את הריבועים לגבוהים יותר (מכסה יותר שטח)
-              children: [
-                _buildModernCard(
-                  context,
-                  'ניהול הבית',
-                  Icons.roofing_rounded,
-                  [const Color(0xFF4A00E0), const Color(0xFF8E2DE2)],
-                  const HomeDetailsScreen(),
-                  '4 משימות',
+                const SizedBox(height: 20),
+
+                // ====== גריד קוביות ======
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 14,
+                            crossAxisSpacing: 14,
+                            childAspectRatio: 0.95,
+                          ),
+                      itemCount: _modules.length,
+                      itemBuilder: (context, index) {
+                        return TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: Duration(milliseconds: 350 + index * 70),
+                          curve: Curves.easeOut,
+                          builder: (context, value, child) =>
+                              Transform.translate(
+                                offset: Offset(0, 18 * (1 - value)),
+                                child: Opacity(opacity: value, child: child),
+                              ),
+                          child: _buildModuleCard(_modules[index]),
+                        );
+                      },
+                    ),
+                  ),
                 ),
-                _buildModernCard(
-                  context,
-                  'הרכב שלי',
-                  Icons.directions_car_filled_rounded,
-                  [const Color(0xFFFF5F6D), const Color(0xFFFFC371)],
-                  const CarScreen(),
-                  'טיפול בקרוב',
-                ),
-                _buildModernCard(
-                  context,
-                  'פיננסים',
-                  Icons.account_balance_wallet_rounded,
-                  [const Color(0xFF11998E), const Color(0xFF38EF7D)],
-                  const FinanceScreen(),
-                  '₪15,240',
-                ),
-                _buildModernCard(
-                  context,
-                  'בריאות',
-                  Icons.favorite_rounded,
-                  [const Color(0xFFEB3349), const Color(0xFFF45C43)],
-                  const HealthScreen(),
-                  'תור מחר',
-                ),
-                _buildModernCard(
-                  context,
-                  'משפחה',
-                  Icons.family_restroom_rounded,
-                  [const Color(0xFF2193B0), const Color(0xFF6DD5ED)],
-                  const FamilyScreen(),
-                  '3 אירועים',
-                ),
-                _buildModernCard(
-                  context,
-                  'קניות',
-                  Icons.local_mall_rounded,
-                  [const Color(0xFFF7971E), const Color(0xFFFFD200)],
-                  const ShoppingScreen(),
-                  '8 פריטים',
-                ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildModernCard(
-    BuildContext context,
-    String title,
-    IconData icon,
-    List<Color> gradientColors,
-    Widget targetPage,
-    String subtitle,
-  ) {
+  Widget _buildModuleCard(_ModuleItem module) {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => targetPage),
+        PageRouteBuilder(
+          pageBuilder: (_, animation, __) => module.page,
+          transitionsBuilder: (_, animation, __, child) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0.04, 0),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                  ),
+              child: child,
+            ),
+          ),
+          transitionDuration: const Duration(milliseconds: 280),
+        ),
       ),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(
-            25,
-          ), // פינות מעט פחות מעוגלות כדי להרוויח שטח ויזואלי
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: gradientColors,
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.35),
+            width: 0.5,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: gradientColors[0].withValues(alpha: 0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Stack(
           children: [
-            // אייקון בפינה
+            // עיגולים דקורטיביים
             Positioned(
-              top: 15,
-              right: 15,
+              bottom: -25,
+              right: -25,
               child: Container(
-                padding: const EdgeInsets.all(8),
+                width: 100,
+                height: 100,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.06),
                 ),
-                child: Icon(icon, color: Colors.white, size: 26),
               ),
             ),
-
-            // מלל ממורכז
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
+            Positioned(
+              top: -18,
+              left: -18,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.04),
+                ),
+              ),
+            ),
+            // תוכן
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // אייקון גדול עם גרדיאנט
+                  Container(
+                    width: 62,
+                    height: 62,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: module.gradient,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: module.gradient[0].withValues(alpha: 0.5),
+                          blurRadius: 14,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Icon(module.icon, color: Colors.white, size: 34),
+                  ),
+                  const Spacer(),
+                  // שם הנושא — גדול ובולט
+                  Text(
+                    module.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  // תת כותרת — בולטת יותר
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      module.subtitle,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 19,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -239,4 +326,20 @@ class HomeManagementScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ModuleItem {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<Color> gradient;
+  final Widget page;
+
+  const _ModuleItem({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.gradient,
+    required this.page,
+  });
 }
