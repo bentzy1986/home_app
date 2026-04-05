@@ -225,4 +225,12 @@ class PantryItem {
   });
 
   bool get isLow => quantity <= minQuantity;
+} // ====== איש קשר לקניות ======
+
+class ShoppingContact {
+  final String id;
+  String name;
+  String phone;
+
+  ShoppingContact({required this.id, required this.name, required this.phone});
 }

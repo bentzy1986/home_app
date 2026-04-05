@@ -7,6 +7,7 @@ class FinanceState extends ChangeNotifier {
   List<BudgetItem> budgetItems = [];
   List<SavingGoal> savingGoals = [];
   List<LoanAccount> loans = [];
+  List<IncomeSource> incomeSources = [];
 
   // ====== Persistence ======
   Future<void> loadFromStorage() async {
@@ -14,6 +15,7 @@ class FinanceState extends ChangeNotifier {
     final budgetData = StorageService.loadJson('finance_budget');
     final savingsData = StorageService.loadJson('finance_savings');
     final loansData = StorageService.loadJson('finance_loans');
+    final incomeData = StorageService.loadJson('finance_income_sources');
 
     transactions = transData != null
         ? (transData as List).map((t) => _transactionFromJson(t)).toList()
@@ -30,6 +32,10 @@ class FinanceState extends ChangeNotifier {
     loans = loansData != null
         ? (loansData as List).map((l) => _loanFromJson(l)).toList()
         : [];
+
+    incomeSources = incomeData != null
+        ? (incomeData as List).map((i) => _incomeSourceFromJson(i)).toList()
+        : _defaultIncomeSources();
 
     notifyListeners();
   }
@@ -51,6 +57,10 @@ class FinanceState extends ChangeNotifier {
       'finance_loans',
       loans.map((l) => _loanToJson(l)).toList(),
     );
+    await StorageService.saveJson(
+      'finance_income_sources',
+      incomeSources.map((i) => _incomeSourceToJson(i)).toList(),
+    );
   }
 
   // ====== Serialization ======
@@ -62,6 +72,7 @@ class FinanceState extends ChangeNotifier {
     'category': t.category.index,
     'date': t.date.toIso8601String(),
     'notes': t.notes,
+    'incomeSourceId': t.incomeSourceId,
   };
 
   Transaction _transactionFromJson(Map<String, dynamic> j) => Transaction(
@@ -72,6 +83,7 @@ class FinanceState extends ChangeNotifier {
     category: ExpenseCategory.values[j['category']],
     date: DateTime.parse(j['date']),
     notes: j['notes'],
+    incomeSourceId: j['incomeSourceId'],
   );
 
   Map<String, dynamic> _budgetToJson(BudgetItem b) => {
@@ -91,6 +103,8 @@ class FinanceState extends ChangeNotifier {
     'currentAmount': s.currentAmount,
     'targetDate': s.targetDate?.toIso8601String(),
     'color': s.color.toARGB32(),
+    'interestRate': s.interestRate,
+    'isCompoundInterest': s.isCompoundInterest,
   };
 
   SavingGoal _savingFromJson(Map<String, dynamic> j) => SavingGoal(
@@ -102,6 +116,8 @@ class FinanceState extends ChangeNotifier {
         ? DateTime.parse(j['targetDate'])
         : null,
     color: Color(j['color']),
+    interestRate: j['interestRate']?.toDouble(),
+    isCompoundInterest: j['isCompoundInterest'] ?? false,
   );
 
   Map<String, dynamic> _loanToJson(LoanAccount l) => {
@@ -111,6 +127,8 @@ class FinanceState extends ChangeNotifier {
     'paidAmount': l.paidAmount,
     'monthlyPayment': l.monthlyPayment,
     'startDate': l.startDate.toIso8601String(),
+    'interestRate': l.interestRate,
+    'totalMonths': l.totalMonths,
   };
 
   LoanAccount _loanFromJson(Map<String, dynamic> j) => LoanAccount(
@@ -120,6 +138,26 @@ class FinanceState extends ChangeNotifier {
     paidAmount: (j['paidAmount'] as num).toDouble(),
     monthlyPayment: (j['monthlyPayment'] as num).toDouble(),
     startDate: DateTime.parse(j['startDate']),
+    interestRate: j['interestRate']?.toDouble(),
+    totalMonths: j['totalMonths'],
+  );
+
+  Map<String, dynamic> _incomeSourceToJson(IncomeSource i) => {
+    'id': i.id,
+    'name': i.name,
+    'type': i.type.index,
+    'amount': i.amount,
+    'owner': i.owner,
+    'isActive': i.isActive,
+  };
+
+  IncomeSource _incomeSourceFromJson(Map<String, dynamic> j) => IncomeSource(
+    id: j['id'],
+    name: j['name'],
+    type: IncomeType.values[j['type']],
+    amount: (j['amount'] as num).toDouble(),
+    owner: j['owner'],
+    isActive: j['isActive'] ?? true,
   );
 
   // ====== ברירות מחדל ======
@@ -128,14 +166,24 @@ class FinanceState extends ChangeNotifier {
     return [
       Transaction(
         id: 't1',
-        title: 'משכורת',
+        title: 'משכורת אבא',
         amount: 15000,
         isIncome: true,
         category: ExpenseCategory.income,
         date: DateTime(now.year, now.month, 1),
+        incomeSourceId: 'is1',
       ),
       Transaction(
         id: 't2',
+        title: 'משכורת אמא',
+        amount: 12000,
+        isIncome: true,
+        category: ExpenseCategory.income,
+        date: DateTime(now.year, now.month, 1),
+        incomeSourceId: 'is2',
+      ),
+      Transaction(
+        id: 't3',
         title: 'סופרמרקט',
         amount: 800,
         isIncome: false,
@@ -143,7 +191,7 @@ class FinanceState extends ChangeNotifier {
         date: DateTime(now.year, now.month, 3),
       ),
       Transaction(
-        id: 't3',
+        id: 't4',
         title: 'דלק',
         amount: 350,
         isIncome: false,
@@ -151,7 +199,7 @@ class FinanceState extends ChangeNotifier {
         date: DateTime(now.year, now.month, 5),
       ),
       Transaction(
-        id: 't4',
+        id: 't5',
         title: 'חשמל',
         amount: 450,
         isIncome: false,
@@ -159,7 +207,7 @@ class FinanceState extends ChangeNotifier {
         date: DateTime(now.year, now.month, 10),
       ),
       Transaction(
-        id: 't5',
+        id: 't6',
         title: 'קניות ביגוד',
         amount: 600,
         isIncome: false,
@@ -167,7 +215,7 @@ class FinanceState extends ChangeNotifier {
         date: DateTime(now.year, now.month, 12),
       ),
       Transaction(
-        id: 't6',
+        id: 't7',
         title: 'מסעדה',
         amount: 280,
         isIncome: false,
@@ -186,6 +234,23 @@ class FinanceState extends ChangeNotifier {
     BudgetItem(category: ExpenseCategory.clothing, budgetAmount: 800),
     BudgetItem(category: ExpenseCategory.bills, budgetAmount: 2000),
     BudgetItem(category: ExpenseCategory.savings, budgetAmount: 2000),
+  ];
+
+  List<IncomeSource> _defaultIncomeSources() => [
+    IncomeSource(
+      id: 'is1',
+      name: 'משכורת אבא',
+      type: IncomeType.salary,
+      amount: 15000,
+      owner: 'אבא',
+    ),
+    IncomeSource(
+      id: 'is2',
+      name: 'משכורת אמא',
+      type: IncomeType.salary,
+      amount: 12000,
+      owner: 'אמא',
+    ),
   ];
 
   // ====== Getters ======
@@ -214,9 +279,13 @@ class FinanceState extends ChangeNotifier {
   }
 
   double get balance => monthlyIncome - monthlyExpenses;
-
   double get totalBudget =>
       budgetItems.fold(0, (sum, b) => sum + b.budgetAmount);
+
+  // סך הכנסות ממקורות קבועים
+  double get totalFixedIncome => incomeSources
+      .where((s) => s.isActive)
+      .fold(0, (sum, s) => sum + s.amount);
 
   List<Transaction> get thisMonthTransactions {
     final now = DateTime.now();
@@ -248,11 +317,20 @@ class FinanceState extends ChangeNotifier {
   double spentFor(ExpenseCategory category) =>
       expensesByCategory[category] ?? 0;
 
-  List<Map<String, dynamic>> get monthlyExpensesChart {
+  // ====== גרף חודשי משופר — הכנסות מול הוצאות ======
+  List<MonthlyData> get monthlyComparison {
     final now = DateTime.now();
     return List.generate(6, (i) {
       final month = DateTime(now.year, now.month - 5 + i);
-      final amount = transactions
+      final income = transactions
+          .where(
+            (t) =>
+                t.isIncome &&
+                t.date.month == month.month &&
+                t.date.year == month.year,
+          )
+          .fold(0.0, (sum, t) => sum + t.amount);
+      final expenses = transactions
           .where(
             (t) =>
                 !t.isIncome &&
@@ -260,25 +338,101 @@ class FinanceState extends ChangeNotifier {
                 t.date.year == month.year,
           )
           .fold(0.0, (sum, t) => sum + t.amount);
-      final months = [
-        'ינו',
-        'פבר',
-        'מרץ',
-        'אפר',
-        'מאי',
-        'יונ',
-        'יול',
-        'אוג',
-        'ספט',
-        'אוק',
-        'נוב',
-        'דצמ',
-      ];
-      return {'month': months[month.month - 1], 'amount': amount};
+      return MonthlyData(month: month, income: income, expenses: expenses);
     });
   }
 
-  // ====== פעולות ======
+  // לתאימות עם הקוד הקיים
+  List<Map<String, dynamic>> get monthlyExpensesChart {
+    final months = [
+      'ינו',
+      'פבר',
+      'מרץ',
+      'אפר',
+      'מאי',
+      'יונ',
+      'יול',
+      'אוג',
+      'ספט',
+      'אוק',
+      'נוב',
+      'דצמ',
+    ];
+    return monthlyComparison
+        .map(
+          (d) => {
+            'month': months[d.month.month - 1],
+            'amount': d.expenses,
+            'income': d.income,
+          },
+        )
+        .toList();
+  }
+
+  // הכנסות לפי מקור
+  Map<IncomeSource, double> get incomeBySource {
+    final now = DateTime.now();
+    final map = <IncomeSource, double>{};
+    for (final t in transactions) {
+      if (t.isIncome &&
+          t.incomeSourceId != null &&
+          t.date.month == now.month &&
+          t.date.year == now.year) {
+        try {
+          final source = incomeSources.firstWhere(
+            (s) => s.id == t.incomeSourceId,
+          );
+          map[source] = (map[source] ?? 0) + t.amount;
+        } catch (_) {}
+      }
+    }
+    return map;
+  }
+
+  // ====== ייצוא CSV ======
+  String exportToCSV() {
+    final buffer = StringBuffer();
+    buffer.writeln('תאריך,כותרת,סכום,סוג,קטגוריה,הערות');
+    for (final t in transactions) {
+      final date = '${t.date.day}/${t.date.month}/${t.date.year}';
+      final type = t.isIncome ? 'הכנסה' : 'הוצאה';
+      buffer.writeln(
+        '$date,${t.title},${t.amount},$type,${t.category.label},${t.notes ?? ''}',
+      );
+    }
+    return buffer.toString();
+  }
+
+  // ====== פעולות מקורות הכנסה ======
+  void addIncomeSource(IncomeSource source) {
+    incomeSources.add(source);
+    _save();
+    notifyListeners();
+  }
+
+  void updateIncomeSource(IncomeSource updated) {
+    final i = incomeSources.indexWhere((s) => s.id == updated.id);
+    if (i != -1) {
+      incomeSources[i] = updated;
+      _save();
+      notifyListeners();
+    }
+  }
+
+  void deleteIncomeSource(String id) {
+    incomeSources.removeWhere((s) => s.id == id);
+    _save();
+    notifyListeners();
+  }
+
+  void toggleIncomeSource(String id) {
+    final s = incomeSources.firstWhere((s) => s.id == id);
+    s.isActive = !s.isActive;
+    _save();
+    notifyListeners();
+  }
+
+  // ====== פעולות תנועות ======
   void addTransaction(Transaction t) {
     transactions.add(t);
     _save();

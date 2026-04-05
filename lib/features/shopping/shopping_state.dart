@@ -5,23 +5,25 @@ import '../../services/storage_service.dart';
 class ShoppingState extends ChangeNotifier {
   List<ShoppingList> lists = [];
   List<PantryItem> pantry = [];
+  List<ShoppingContact> contacts = [];
 
   // ====== Persistence ======
   Future<void> loadFromStorage() async {
     final listsData = StorageService.loadJson('shopping_lists');
     final pantryData = StorageService.loadJson('shopping_pantry');
+    final contactsData = StorageService.loadJson('shopping_contacts');
 
-    if (listsData != null) {
-      lists = (listsData as List).map((l) => _listFromJson(l)).toList();
-    } else {
-      lists = _defaultLists();
-    }
+    lists = listsData != null
+        ? (listsData as List).map((l) => _listFromJson(l)).toList()
+        : _defaultLists();
 
-    if (pantryData != null) {
-      pantry = (pantryData as List).map((p) => _pantryFromJson(p)).toList();
-    } else {
-      pantry = _defaultPantry();
-    }
+    pantry = pantryData != null
+        ? (pantryData as List).map((p) => _pantryFromJson(p)).toList()
+        : _defaultPantry();
+
+    contacts = contactsData != null
+        ? (contactsData as List).map((c) => _contactFromJson(c)).toList()
+        : [];
 
     notifyListeners();
   }
@@ -34,6 +36,10 @@ class ShoppingState extends ChangeNotifier {
     await StorageService.saveJson(
       'shopping_pantry',
       pantry.map((p) => _pantryToJson(p)).toList(),
+    );
+    await StorageService.saveJson(
+      'shopping_contacts',
+      contacts.map((c) => _contactToJson(c)).toList(),
     );
   }
 
@@ -95,6 +101,15 @@ class ShoppingState extends ChangeNotifier {
     minQuantity: j['minQuantity'],
     unit: j['unit'],
   );
+
+  Map<String, dynamic> _contactToJson(ShoppingContact c) => {
+    'id': c.id,
+    'name': c.name,
+    'phone': c.phone,
+  };
+
+  ShoppingContact _contactFromJson(Map<String, dynamic> j) =>
+      ShoppingContact(id: j['id'], name: j['name'], phone: j['phone']);
 
   // ====== ברירות מחדל ======
   List<ShoppingList> _defaultLists() => [
@@ -331,6 +346,28 @@ class ShoppingState extends ChangeNotifier {
         );
       }
     }
+    _save();
+    notifyListeners();
+  }
+
+  // ====== פעולות אנשי קשר ======
+  void addContact(ShoppingContact contact) {
+    contacts.add(contact);
+    _save();
+    notifyListeners();
+  }
+
+  void updateContact(ShoppingContact updated) {
+    final i = contacts.indexWhere((c) => c.id == updated.id);
+    if (i != -1) {
+      contacts[i] = updated;
+      _save();
+      notifyListeners();
+    }
+  }
+
+  void deleteContact(String id) {
+    contacts.removeWhere((c) => c.id == id);
     _save();
     notifyListeners();
   }

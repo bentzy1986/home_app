@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:excel/excel.dart' hide Border;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../main.dart';
 import 'finance_state.dart';
 import 'models/finance_models.dart';
@@ -17,7 +23,7 @@ class _FinanceScreenState extends State<FinanceScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     _state.addListener(_onStateChange);
   }
 
@@ -38,6 +44,24 @@ class _FinanceScreenState extends State<FinanceScreen>
   String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
+  String _formatDateTime(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  final List<String> _monthNames = [
+    'ינו',
+    'פבר',
+    'מרץ',
+    'אפר',
+    'מאי',
+    'יונ',
+    'יול',
+    'אוג',
+    'ספט',
+    'אוק',
+    'נוב',
+    'דצמ',
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,6 +78,13 @@ class _FinanceScreenState extends State<FinanceScreen>
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_rounded, color: Colors.white),
+            onPressed: _exportCSV,
+            tooltip: 'ייצוא CSV',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -66,6 +97,8 @@ class _FinanceScreenState extends State<FinanceScreen>
             Tab(text: 'תקציב'),
             Tab(text: 'חיסכון'),
             Tab(text: 'הלוואות'),
+            Tab(text: 'הכנסות'),
+            Tab(text: 'השוואה'),
           ],
         ),
       ),
@@ -77,6 +110,8 @@ class _FinanceScreenState extends State<FinanceScreen>
           _buildBudget(),
           _buildSavings(),
           _buildLoans(),
+          _buildIncomeSources(),
+          _buildComparison(),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -100,6 +135,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
+          // כרטיס ראשי
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(25),
@@ -154,7 +190,104 @@ class _FinanceScreenState extends State<FinanceScreen>
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // כרטיס מקורות הכנסה
+          if (_state.incomeSources.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'מקורות הכנסה',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        _formatAmount(_state.totalFixedIncome),
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ..._state.incomeSources
+                      .where((s) => s.isActive)
+                      .map(
+                        (s) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: s.type.color.withValues(
+                                  alpha: 0.15,
+                                ),
+                                child: Icon(
+                                  s.type.icon,
+                                  color: s.type.color,
+                                  size: 14,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      s.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    if (s.owner != null)
+                                      Text(
+                                        s.owner!,
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                _formatAmount(s.amount),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 16),
+
+          // גרף הוצאות
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -171,7 +304,7 @@ class _FinanceScreenState extends State<FinanceScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'הוצאות — 6 חודשים אחרונים',
+                  'הוצאות — 6 חודשים',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 const SizedBox(height: 20),
@@ -230,7 +363,10 @@ class _FinanceScreenState extends State<FinanceScreen>
               ],
             ),
           ),
-          const SizedBox(height: 20),
+
+          const SizedBox(height: 16),
+
+          // הוצאות לפי קטגוריה
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -388,6 +524,12 @@ class _FinanceScreenState extends State<FinanceScreen>
   }
 
   Widget _buildTransactionTile(Transaction t) {
+    final source = t.incomeSourceId != null
+        ? _state.incomeSources
+              .where((s) => s.id == t.incomeSourceId)
+              .firstOrNull
+        : null;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -400,9 +542,19 @@ class _FinanceScreenState extends State<FinanceScreen>
           t.title,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Text(
-          '${t.category.label} • ${_formatDate(t.date)}',
-          style: const TextStyle(fontSize: 12),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${t.category.label} • ${_formatDateTime(t.date)}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            if (source != null)
+              Text(
+                source.name,
+                style: TextStyle(fontSize: 11, color: source.type.color),
+              ),
+          ],
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -433,6 +585,7 @@ class _FinanceScreenState extends State<FinanceScreen>
             ),
           ],
         ),
+        isThreeLine: source != null,
       ),
     );
   }
@@ -629,8 +782,8 @@ class _FinanceScreenState extends State<FinanceScreen>
             ),
           )
         else
-          ..._state.savingGoals.map((goal) {
-            return Card(
+          ..._state.savingGoals.map(
+            (goal) => Card(
               margin: const EdgeInsets.only(bottom: 15),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -669,6 +822,14 @@ class _FinanceScreenState extends State<FinanceScreen>
                                   '${goal.daysLeft} ימים נותרו',
                                   style: const TextStyle(
                                     color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              if (goal.interestRate != null)
+                                Text(
+                                  'ריבית: ${goal.interestRate}% ${goal.isCompoundInterest ? '(דריבית)' : '(פשוטה)'}',
+                                  style: TextStyle(
+                                    color: goal.color,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -737,8 +898,8 @@ class _FinanceScreenState extends State<FinanceScreen>
                   ],
                 ),
               ),
-            );
-          }),
+            ),
+          ),
         const SizedBox(height: 80),
       ],
     );
@@ -775,8 +936,8 @@ class _FinanceScreenState extends State<FinanceScreen>
             ),
           )
         else
-          ..._state.loans.map((loan) {
-            return Card(
+          ..._state.loans.map(
+            (loan) => Card(
               margin: const EdgeInsets.only(bottom: 15),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -798,12 +959,33 @@ class _FinanceScreenState extends State<FinanceScreen>
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            loan.title,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                loan.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              if (loan.interestRate != null)
+                                Text(
+                                  'ריבית: ${loan.interestRate}% | סה"כ ריבית: ${_formatAmount(loan.totalInterest)}',
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              if (loan.monthsLeft != null)
+                                Text(
+                                  '${loan.monthsLeft} חודשים נותרו',
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         PopupMenuButton(
@@ -892,14 +1074,960 @@ class _FinanceScreenState extends State<FinanceScreen>
                   ],
                 ),
               ),
-            );
-          }),
+            ),
+          ),
         const SizedBox(height: 80),
       ],
     );
   }
 
+  // ====== מקורות הכנסה ======
+  Widget _buildIncomeSources() {
+    final totalActive = _state.totalFixedIncome;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // כרטיס סיכום
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF11998E), Color(0xFF38EF7D)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'סך הכנסות חודשיות',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  Text(
+                    _formatAmount(totalActive),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    'מקורות פעילים',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  Text(
+                    '${_state.incomeSources.where((s) => s.isActive).length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'מקורות הכנסה',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            TextButton.icon(
+              onPressed: _showAddIncomeSourceSheet,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('הוסף'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        if (_state.incomeSources.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: Text(
+                'אין מקורות הכנסה',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          )
+        else
+          ..._state.incomeSources.map(
+            (s) => Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: s.isActive
+                      ? s.type.color.withValues(alpha: 0.15)
+                      : Colors.grey.withValues(alpha: 0.1),
+                  child: Icon(
+                    s.type.icon,
+                    color: s.isActive ? s.type.color : Colors.grey,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  s.name,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    decoration: s.isActive ? null : TextDecoration.lineThrough,
+                    color: s.isActive ? Colors.black : Colors.grey,
+                  ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(s.type.label, style: const TextStyle(fontSize: 12)),
+                    if (s.owner != null)
+                      Text(
+                        s.owner!,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _formatAmount(s.amount),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: s.isActive ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                    PopupMenuButton(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: Colors.grey,
+                        size: 18,
+                      ),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'toggle',
+                          child: Text(s.isActive ? 'השבת' : 'הפעל'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('עריכה'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('מחיקה'),
+                        ),
+                      ],
+                      onSelected: (val) {
+                        if (val == 'toggle') {
+                          _state.toggleIncomeSource(s.id);
+                        }
+                        if (val == 'edit') {
+                          _showEditIncomeSourceSheet(s);
+                        }
+                        if (val == 'delete') {
+                          _state.deleteIncomeSource(s.id);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                isThreeLine: s.owner != null,
+              ),
+            ),
+          ),
+        const SizedBox(height: 80),
+      ],
+    );
+  }
+
+  // ====== השוואה בין חודשים ======
+  Widget _buildComparison() {
+    final data = _state.monthlyComparison;
+    final maxVal = data.isEmpty
+        ? 1.0
+        : data
+              .map((d) => d.income > d.expenses ? d.income : d.expenses)
+              .reduce((a, b) => a > b ? a : b);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // גרף השוואה
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'הכנסות מול הוצאות — 6 חודשים',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(width: 12, height: 12, color: Colors.green),
+                    const SizedBox(width: 4),
+                    const Text('הכנסות', style: TextStyle(fontSize: 11)),
+                    const SizedBox(width: 12),
+                    Container(width: 12, height: 12, color: Colors.red),
+                    const SizedBox(width: 4),
+                    const Text('הוצאות', style: TextStyle(fontSize: 11)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 160,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: data.map((d) {
+                      final incomeRatio = maxVal > 0 ? d.income / maxVal : 0.0;
+                      final expenseRatio = maxVal > 0
+                          ? d.expenses / maxVal
+                          : 0.0;
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 500),
+                                width: 14,
+                                height: (incomeRatio * 120).clamp(2, 120),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 500),
+                                width: 14,
+                                height: (expenseRatio * 120).clamp(2, 120),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _monthNames[d.month.month - 1],
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // פירוט חודשי
+          const Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'פירוט חודשי',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...data.reversed.map((d) {
+            final isCurrentMonth = DateUtils.isSameMonth(
+              d.month,
+              DateTime.now(),
+            );
+            return Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '${_monthNames[d.month.month - 1]} ${d.month.year}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isCurrentMonth
+                                    ? const Color(0xFF1A1A1A)
+                                    : Colors.grey[700],
+                              ),
+                            ),
+                            if (isCurrentMonth) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1A1A1A),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'נוכחי',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          d.balance >= 0
+                              ? '+${_formatAmount(d.balance)}'
+                              : _formatAmount(d.balance),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: d.balance >= 0 ? Colors.green : Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'הכנסות',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                _formatAmount(d.income),
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'הוצאות',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                _formatAmount(d.expenses),
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const Text(
+                                'חיסכון %',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                '${d.savingsRate.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: d.savingsRate >= 0
+                                      ? Colors.blue
+                                      : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  // ====== ייצוא CSV ======
+  void _exportCSV() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(25),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'ייצוא נתונים',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            _exportOption(
+              Icons.table_chart_rounded,
+              'ייצוא לאקסל',
+              'קובץ .xlsx',
+              Colors.green,
+              _exportToExcel,
+            ),
+            const SizedBox(height: 10),
+            _exportOption(
+              Icons.picture_as_pdf_rounded,
+              'ייצוא ל-PDF',
+              'קובץ .pdf',
+              Colors.red,
+              _exportToPDF,
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _exportOption(
+    IconData icon,
+    String title,
+    String subtitle,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Icon(icon, color: color),
+            ),
+            const SizedBox(width: 15),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: color.withValues(alpha: 0.7),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportToExcel() async {
+    try {
+      final excel = Excel.createExcel();
+      final sheet = excel['תנועות'];
+
+      // כותרות
+      sheet.appendRow([
+        TextCellValue('תאריך'),
+        TextCellValue('כותרת'),
+        TextCellValue('סכום'),
+        TextCellValue('סוג'),
+        TextCellValue('קטגוריה'),
+        TextCellValue('הערות'),
+      ]);
+
+      // נתונים
+      for (final t in _state.transactions) {
+        sheet.appendRow([
+          TextCellValue('${t.date.day}/${t.date.month}/${t.date.year}'),
+          TextCellValue(t.title),
+          DoubleCellValue(t.amount),
+          TextCellValue(t.isIncome ? 'הכנסה' : 'הוצאה'),
+          TextCellValue(t.category.label),
+          TextCellValue(t.notes ?? ''),
+        ]);
+      }
+
+      // שמירה
+      final dir = await getApplicationDocumentsDirectory();
+      final path =
+          '${dir.path}/פיננסים_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+      final file = File(path);
+      await file.writeAsBytes(excel.encode()!);
+
+      await Share.shareXFiles([XFile(path)], subject: 'נתוני פיננסים');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('שגיאה בייצוא: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportToPDF() async {
+    try {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          textDirection: pw.TextDirection.rtl,
+          build: (context) => [
+            pw.Header(
+              level: 0,
+              child: pw.Text(
+                'דוח פיננסי',
+                style: pw.TextStyle(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Text(
+              'תאריך הפקה: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+            ),
+            pw.SizedBox(height: 10),
+
+            // סיכום
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(),
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'סיכום חודשי',
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    'הכנסות: ₪${_state.monthlyIncome.toStringAsFixed(0)}',
+                  ),
+                  pw.Text(
+                    'הוצאות: ₪${_state.monthlyExpenses.toStringAsFixed(0)}',
+                  ),
+                  pw.Text('יתרה: ₪${_state.balance.toStringAsFixed(0)}'),
+                ],
+              ),
+            ),
+
+            pw.SizedBox(height: 20),
+            pw.Text(
+              'תנועות החודש',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
+            ),
+            pw.SizedBox(height: 10),
+
+            // טבלת תנועות
+            pw.TableHelper.fromTextArray(
+              headers: ['תאריך', 'כותרת', 'סכום', 'סוג', 'קטגוריה'],
+              data: _state.thisMonthTransactions
+                  .map(
+                    (t) => [
+                      '${t.date.day}/${t.date.month}/${t.date.year}',
+                      t.title,
+                      '₪${t.amount.toStringAsFixed(0)}',
+                      t.isIncome ? 'הכנסה' : 'הוצאה',
+                      t.category.label,
+                    ],
+                  )
+                  .toList(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey300,
+              ),
+              cellAlignment: pw.Alignment.centerRight,
+            ),
+
+            pw.SizedBox(height: 20),
+            pw.Text(
+              'מקורות הכנסה',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
+            ),
+            pw.SizedBox(height: 10),
+
+            pw.TableHelper.fromTextArray(
+              headers: ['שם', 'סוג', 'סכום', 'בעלים'],
+              data: _state.incomeSources
+                  .map(
+                    (s) => [
+                      s.name,
+                      s.type.label,
+                      '₪${s.amount.toStringAsFixed(0)}',
+                      s.owner ?? '',
+                    ],
+                  )
+                  .toList(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey300,
+              ),
+              cellAlignment: pw.Alignment.centerRight,
+            ),
+          ],
+        ),
+      );
+
+      final dir = await getApplicationDocumentsDirectory();
+      final path =
+          '${dir.path}/פיננסים_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final file = File(path);
+      await file.writeAsBytes(await pdf.save());
+
+      await Share.shareXFiles([XFile(path)], subject: 'דוח פיננסי');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('שגיאה בייצוא: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   // ====== דיאלוגים ======
+
+  void _showAddIncomeSourceSheet() {
+    final nameController = TextEditingController();
+    final amountController = TextEditingController();
+    final ownerController = TextEditingController();
+    IncomeType selectedType = IncomeType.salary;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModal) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 25,
+            right: 25,
+            top: 25,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'מקור הכנסה חדש',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 15),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'סוג:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: IncomeType.values.map((t) {
+                    final isSelected = selectedType == t;
+                    return ChoiceChip(
+                      label: Text(t.label),
+                      selected: isSelected,
+                      onSelected: (_) => setModal(() => selectedType = t),
+                      selectedColor: t.color,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: nameController,
+                  textAlign: TextAlign.right,
+                  decoration: const InputDecoration(
+                    labelText: 'שם (לדוגמה: משכורת אבא)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: amountController,
+                  textAlign: TextAlign.right,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'סכום חודשי (₪)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: ownerController,
+                  textAlign: TextAlign.right,
+                  decoration: const InputDecoration(
+                    labelText: 'בעל ההכנסה (אופציונלי)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF11998E),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    onPressed: () {
+                      if (nameController.text.isEmpty ||
+                          amountController.text.isEmpty)
+                        return;
+                      _state.addIncomeSource(
+                        IncomeSource(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          name: nameController.text,
+                          type: selectedType,
+                          amount: double.tryParse(amountController.text) ?? 0,
+                          owner: ownerController.text.isEmpty
+                              ? null
+                              : ownerController.text,
+                        ),
+                      );
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text(
+                      'הוסף מקור הכנסה',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEditIncomeSourceSheet(IncomeSource source) {
+    final nameController = TextEditingController(text: source.name);
+    final amountController = TextEditingController(
+      text: source.amount.toStringAsFixed(0),
+    );
+    final ownerController = TextEditingController(text: source.owner ?? '');
+    IncomeType selectedType = source.type;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModal) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 25,
+            right: 25,
+            top: 25,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'עריכת מקור הכנסה',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 15),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: IncomeType.values.map((t) {
+                    final isSelected = selectedType == t;
+                    return ChoiceChip(
+                      label: Text(t.label),
+                      selected: isSelected,
+                      onSelected: (_) => setModal(() => selectedType = t),
+                      selectedColor: t.color,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: nameController,
+                  textAlign: TextAlign.right,
+                  decoration: const InputDecoration(
+                    labelText: 'שם',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: amountController,
+                  textAlign: TextAlign.right,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'סכום חודשי (₪)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: ownerController,
+                  textAlign: TextAlign.right,
+                  decoration: const InputDecoration(
+                    labelText: 'בעל ההכנסה',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    onPressed: () {
+                      _state.updateIncomeSource(
+                        IncomeSource(
+                          id: source.id,
+                          name: nameController.text,
+                          type: selectedType,
+                          amount: double.tryParse(amountController.text) ?? 0,
+                          owner: ownerController.text.isEmpty
+                              ? null
+                              : ownerController.text,
+                          isActive: source.isActive,
+                        ),
+                      );
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text(
+                      'שמור שינויים',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showAddTransactionSheet() {
     final titleController = TextEditingController();
@@ -907,6 +2035,7 @@ class _FinanceScreenState extends State<FinanceScreen>
     bool isIncome = false;
     ExpenseCategory selectedCategory = ExpenseCategory.food;
     DateTime selectedDate = DateTime.now();
+    String? selectedIncomeSourceId;
 
     showModalBottomSheet(
       context: context,
@@ -945,6 +2074,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                         selectedCategory = v
                             ? ExpenseCategory.income
                             : ExpenseCategory.food;
+                        selectedIncomeSourceId = null;
                       }),
                     ),
                     const Text('הכנסה'),
@@ -994,6 +2124,36 @@ class _FinanceScreenState extends State<FinanceScreen>
                         .toList(),
                     onChanged: (v) => setModal(() => selectedCategory = v!),
                   ),
+                if (isIncome && _state.incomeSources.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'מקור הכנסה (אופציונלי)',
+                      border: OutlineInputBorder(),
+                    ),
+                    initialValue: selectedIncomeSourceId,
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('ללא שיוך'),
+                      ),
+                      ..._state.incomeSources.map(
+                        (s) => DropdownMenuItem(
+                          value: s.id,
+                          child: Row(
+                            children: [
+                              Icon(s.type.icon, color: s.type.color, size: 18),
+                              const SizedBox(width: 8),
+                              Text(s.name),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) =>
+                        setModal(() => selectedIncomeSourceId = v),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: () async {
@@ -1053,6 +2213,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                               ? ExpenseCategory.income
                               : selectedCategory,
                           date: selectedDate,
+                          incomeSourceId: selectedIncomeSourceId,
                         ),
                       );
                       Navigator.pop(ctx);
@@ -1080,6 +2241,7 @@ class _FinanceScreenState extends State<FinanceScreen>
     bool isIncome = t.isIncome;
     ExpenseCategory selectedCategory = t.category;
     DateTime selectedDate = t.date;
+    String? selectedIncomeSourceId = t.incomeSourceId;
 
     showModalBottomSheet(
       context: context,
@@ -1151,6 +2313,28 @@ class _FinanceScreenState extends State<FinanceScreen>
                         .toList(),
                     onChanged: (v) => setModal(() => selectedCategory = v!),
                   ),
+                if (isIncome && _state.incomeSources.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'מקור הכנסה',
+                      border: OutlineInputBorder(),
+                    ),
+                    initialValue: selectedIncomeSourceId,
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('ללא שיוך'),
+                      ),
+                      ..._state.incomeSources.map(
+                        (s) =>
+                            DropdownMenuItem(value: s.id, child: Text(s.name)),
+                      ),
+                    ],
+                    onChanged: (v) =>
+                        setModal(() => selectedIncomeSourceId = v),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -1176,6 +2360,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                           isIncome: isIncome,
                           category: selectedCategory,
                           date: selectedDate,
+                          incomeSourceId: selectedIncomeSourceId,
                         ),
                       );
                       Navigator.pop(ctx);
@@ -1241,8 +2426,10 @@ class _FinanceScreenState extends State<FinanceScreen>
     final titleController = TextEditingController();
     final targetController = TextEditingController();
     final currentController = TextEditingController(text: '0');
+    final interestController = TextEditingController();
     DateTime? targetDate;
     Color selectedColor = const Color(0xFF2193B0);
+    bool isCompound = false;
 
     final colors = [
       const Color(0xFF2193B0),
@@ -1307,6 +2494,27 @@ class _FinanceScreenState extends State<FinanceScreen>
                   ),
                 ),
                 const SizedBox(height: 10),
+                TextField(
+                  controller: interestController,
+                  textAlign: TextAlign.right,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'ריבית שנתית % (אופציונלי)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('ריבית דריבית:'),
+                    Switch(
+                      value: isCompound,
+                      onChanged: (v) => setModal(() => isCompound = v),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 const Align(
                   alignment: Alignment.centerRight,
                   child: Text(
@@ -1317,31 +2525,30 @@ class _FinanceScreenState extends State<FinanceScreen>
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 10,
-                  children: colors
-                      .map(
-                        (c) => GestureDetector(
-                          onTap: () => setModal(() => selectedColor = c),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: c,
-                              shape: BoxShape.circle,
-                              border: selectedColor == c
-                                  ? Border.all(color: Colors.black, width: 3)
-                                  : null,
-                            ),
-                            child: selectedColor == c
-                                ? const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 18,
-                                  )
-                                : null,
-                          ),
+                  children: colors.map((c) {
+                    final isSelected = selectedColor == c;
+                    return GestureDetector(
+                      onTap: () => setModal(() => selectedColor = c),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                          border: isSelected
+                              ? Border.all(color: Colors.black, width: 3)
+                              : null,
                         ),
-                      )
-                      .toList(),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 18,
+                              )
+                            : null,
+                      ),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 10),
                 GestureDetector(
@@ -1408,6 +2615,10 @@ class _FinanceScreenState extends State<FinanceScreen>
                               double.tryParse(currentController.text) ?? 0,
                           targetDate: targetDate,
                           color: selectedColor,
+                          interestRate: double.tryParse(
+                            interestController.text,
+                          ),
+                          isCompoundInterest: isCompound,
                         ),
                       );
                       Navigator.pop(ctx);
@@ -1471,6 +2682,8 @@ class _FinanceScreenState extends State<FinanceScreen>
     final totalController = TextEditingController();
     final paidController = TextEditingController(text: '0');
     final monthlyController = TextEditingController();
+    final interestController = TextEditingController();
+    final monthsController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
@@ -1534,6 +2747,34 @@ class _FinanceScreenState extends State<FinanceScreen>
                   border: OutlineInputBorder(),
                 ),
               ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: interestController,
+                      textAlign: TextAlign.right,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'ריבית שנתית %',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: monthsController,
+                      textAlign: TextAlign.right,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'מספר חודשים',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -1558,6 +2799,8 @@ class _FinanceScreenState extends State<FinanceScreen>
                         monthlyPayment:
                             double.tryParse(monthlyController.text) ?? 0,
                         startDate: DateTime.now(),
+                        interestRate: double.tryParse(interestController.text),
+                        totalMonths: int.tryParse(monthsController.text),
                       ),
                     );
                     Navigator.pop(context);

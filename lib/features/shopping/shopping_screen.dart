@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../main.dart';
 import 'shopping_state.dart';
 import 'models/shopping_models.dart';
@@ -43,6 +45,413 @@ class _ShoppingScreenState extends State<ShoppingScreen>
         )
       : null;
 
+  // ====== שליחת WhatsApp ======
+  Future<void> _sendWhatsApp(ShoppingList list, ShoppingContact contact) async {
+    final buffer = StringBuffer();
+    buffer.writeln('🛒 *${list.name}*');
+    buffer.writeln('');
+
+    final byCategory = list.itemsByCategory;
+    for (final entry in byCategory.entries) {
+      final unchecked = entry.value.where((i) => !i.isChecked).toList();
+      if (unchecked.isEmpty) continue;
+      buffer.writeln('*${entry.key.label}*');
+      for (final item in unchecked) {
+        final qty = item.quantity != null
+            ? '${item.quantity!.toStringAsFixed(item.quantity! % 1 == 0 ? 0 : 1)} ${item.unit ?? ''}'
+            : '';
+        buffer.writeln('• ${item.name} $qty');
+      }
+      buffer.writeln('');
+    }
+
+    String phone = contact.phone
+        .replaceAll('-', '')
+        .replaceAll(' ', '')
+        .replaceAll('+', '');
+    if (phone.startsWith('0')) {
+      phone = '972${phone.substring(1)}';
+    }
+
+    final text = Uri.encodeComponent(buffer.toString());
+    final url = Uri.parse('https://wa.me/$phone?text=$text');
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('לא ניתן לפתוח את WhatsApp'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showSendWhatsAppSheet(ShoppingList list) {
+    if (_state.contacts.isEmpty) {
+      _showManageContactsSheet();
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(25),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'שלח ל...',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showManageContactsSheet();
+                  },
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('ערוך'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ..._state.contacts.map(
+              (c) => ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(
+                    0xFF25D366,
+                  ).withValues(alpha: 0.15),
+                  child: FaIcon(
+                    FontAwesomeIcons.whatsapp,
+                    color: const Color(0xFF25D366),
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  c.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  c.phone,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                trailing: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _sendWhatsApp(list, c);
+                  },
+                  child: const Text(
+                    'שלח',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showSendToCustomNumberSheet(list);
+                },
+                icon: const Icon(Icons.dialpad_rounded),
+                label: const Text('מספר אחר'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSendToCustomNumberSheet(ShoppingList list) {
+    final phoneController = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 25,
+          right: 25,
+          top: 25,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'שלח למספר',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(
+                labelText: 'מספר טלפון',
+                border: OutlineInputBorder(),
+                prefixText: '+972 ',
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                onPressed: () {
+                  if (phoneController.text.isEmpty) return;
+                  final contact = ShoppingContact(
+                    id: 'temp',
+                    name: 'מספר ידני',
+                    phone: phoneController.text,
+                  );
+                  Navigator.pop(context);
+                  _sendWhatsApp(list, contact);
+                },
+                icon: FaIcon(
+                  FontAwesomeIcons.whatsapp,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                label: const Text(
+                  'שלח',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showManageContactsSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModal) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 25,
+            right: 25,
+            top: 25,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'אנשי קשר לקניות',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _showAddEditContactSheet(null);
+                    },
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('הוסף'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (_state.contacts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    'אין אנשי קשר עדיין',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+              else
+                ..._state.contacts.map(
+                  (c) => ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFF25D366),
+                      child: FaIcon(
+                        FontAwesomeIcons.whatsapp,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      c.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(c.phone),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _showAddEditContactSheet(c);
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                          onPressed: () {
+                            _state.deleteContact(c.id);
+                            setModal(() {});
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddEditContactSheet(ShoppingContact? contact) {
+    final nameController = TextEditingController(text: contact?.name ?? '');
+    final phoneController = TextEditingController(text: contact?.phone ?? '');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 25,
+          right: 25,
+          top: 25,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              contact == null ? 'איש קשר חדש' : 'עריכת ${contact.name}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: nameController,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(
+                labelText: 'שם',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: phoneController,
+              textAlign: TextAlign.right,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'מספר טלפון (לדוגמה: 050-1234567)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF7971E),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                onPressed: () {
+                  if (nameController.text.isEmpty ||
+                      phoneController.text.isEmpty)
+                    return;
+                  if (contact == null) {
+                    _state.addContact(
+                      ShoppingContact(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        name: nameController.text,
+                        phone: phoneController.text,
+                      ),
+                    );
+                  } else {
+                    _state.updateContact(
+                      ShoppingContact(
+                        id: contact.id,
+                        name: nameController.text,
+                        phone: phoneController.text,
+                      ),
+                    );
+                  }
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  contact == null ? 'הוסף' : 'שמור שינויים',
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,6 +469,11 @@ class _ShoppingScreenState extends State<ShoppingScreen>
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.contacts_rounded, color: Colors.white),
+            onPressed: _showManageContactsSheet,
+            tooltip: 'אנשי קשר',
+          ),
           IconButton(
             icon: const Icon(
               Icons.add_shopping_cart_rounded,
@@ -262,6 +676,22 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                     ],
                   ),
                 ),
+                GestureDetector(
+                  onTap: () => _showSendWhatsAppSheet(list),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: FaIcon(
+                      FontAwesomeIcons.whatsapp,
+                      color: const Color(0xFF25D366),
+                      size: 22,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 PopupMenuButton(
                   icon: const Icon(Icons.more_vert, color: Colors.grey),
                   itemBuilder: (_) => [
@@ -411,15 +841,51 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                   fontSize: 15,
                 ),
               ),
-              if (list.totalPrice > 0)
-                Text(
-                  '₪${list.totalPrice.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+              Row(
+                children: [
+                  if (list.totalPrice > 0)
+                    Text(
+                      '₪${list.totalPrice.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _showSendWhatsAppSheet(list),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          FaIcon(
+                            FontAwesomeIcons.whatsapp,
+                            color: const Color(0xFF25D366),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 4),
+                          const Text(
+                            'שלח',
+                            style: TextStyle(
+                              color: Color(0xFF25D366),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
+              ),
             ],
           ),
         ),
@@ -924,7 +1390,6 @@ class _ShoppingScreenState extends State<ShoppingScreen>
   }
 
   // ====== דיאלוגים ======
-
   void _showAddListSheet() {
     final nameController = TextEditingController();
     ListType selectedType = ListType.weekly;
