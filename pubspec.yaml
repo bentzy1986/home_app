@@ -18,7 +18,8 @@ dependencies:
   excel: ^4.0.6
   pdf: ^3.10.8
   path_provider: ^2.1.3
-  share_plus: ^10.0.0
+  share_plus: ^9.0.0
+  open_filex: ^4.4.1
 
 dev_dependencies:
   flutter_test:
@@ -27,3 +28,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/fonts/
+  fonts:
+    - family: Heebo
+      fonts:
+        - asset: assets/fonts/Heebo-Regular.ttf

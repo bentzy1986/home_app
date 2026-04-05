@@ -1,10 +1,11 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:excel/excel.dart' hide Border;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:open_filex/open_filex.dart';
 import '../../main.dart';
 import 'finance_state.dart';
 import 'models/finance_models.dart';
@@ -82,7 +83,7 @@ class _FinanceScreenState extends State<FinanceScreen>
           IconButton(
             icon: const Icon(Icons.download_rounded, color: Colors.white),
             onPressed: _exportCSV,
-            tooltip: 'ייצוא CSV',
+            tooltip: 'ייצוא',
           ),
         ],
         bottom: TabBar(
@@ -135,7 +136,6 @@ class _FinanceScreenState extends State<FinanceScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // כרטיס ראשי
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(25),
@@ -191,8 +191,6 @@ class _FinanceScreenState extends State<FinanceScreen>
             ),
           ),
           const SizedBox(height: 16),
-
-          // כרטיס מקורות הכנסה
           if (_state.incomeSources.isNotEmpty)
             Container(
               padding: const EdgeInsets.all(16),
@@ -284,10 +282,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                 ],
               ),
             ),
-
           const SizedBox(height: 16),
-
-          // גרף הוצאות
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -363,10 +358,7 @@ class _FinanceScreenState extends State<FinanceScreen>
               ],
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // הוצאות לפי קטגוריה
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -517,8 +509,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                   ),
                 );
               }
-              final t = transactions[index - 1];
-              return _buildTransactionTile(t);
+              return _buildTransactionTile(transactions[index - 1]);
             },
           );
   }
@@ -529,7 +520,6 @@ class _FinanceScreenState extends State<FinanceScreen>
               .where((s) => s.id == t.incomeSourceId)
               .firstOrNull
         : null;
-
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -575,12 +565,8 @@ class _FinanceScreenState extends State<FinanceScreen>
                 const PopupMenuItem(value: 'delete', child: Text('מחיקה')),
               ],
               onSelected: (val) {
-                if (val == 'edit') {
-                  _showEditTransactionSheet(t);
-                }
-                if (val == 'delete') {
-                  _state.deleteTransaction(t.id);
-                }
+                if (val == 'edit') _showEditTransactionSheet(t);
+                if (val == 'delete') _state.deleteTransaction(t.id);
               },
             ),
           ],
@@ -849,12 +835,9 @@ class _FinanceScreenState extends State<FinanceScreen>
                             ),
                           ],
                           onSelected: (val) {
-                            if (val == 'add') {
-                              _showAddToSavingDialog(goal);
-                            }
-                            if (val == 'delete') {
+                            if (val == 'add') _showAddToSavingDialog(goal);
+                            if (val == 'delete')
                               _state.deleteSavingGoal(goal.id);
-                            }
                           },
                         ),
                       ],
@@ -1001,12 +984,8 @@ class _FinanceScreenState extends State<FinanceScreen>
                             ),
                           ],
                           onSelected: (val) {
-                            if (val == 'pay') {
-                              _showLoanPaymentDialog(loan);
-                            }
-                            if (val == 'delete') {
-                              _state.deleteLoan(loan.id);
-                            }
+                            if (val == 'pay') _showLoanPaymentDialog(loan);
+                            if (val == 'delete') _state.deleteLoan(loan.id);
                           },
                         ),
                       ],
@@ -1084,11 +1063,9 @@ class _FinanceScreenState extends State<FinanceScreen>
   // ====== מקורות הכנסה ======
   Widget _buildIncomeSources() {
     final totalActive = _state.totalFixedIncome;
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // כרטיס סיכום
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -1138,7 +1115,6 @@ class _FinanceScreenState extends State<FinanceScreen>
           ),
         ),
         const SizedBox(height: 16),
-
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1154,7 +1130,6 @@ class _FinanceScreenState extends State<FinanceScreen>
           ],
         ),
         const SizedBox(height: 10),
-
         if (_state.incomeSources.isEmpty)
           const Center(
             child: Padding(
@@ -1237,15 +1212,9 @@ class _FinanceScreenState extends State<FinanceScreen>
                         ),
                       ],
                       onSelected: (val) {
-                        if (val == 'toggle') {
-                          _state.toggleIncomeSource(s.id);
-                        }
-                        if (val == 'edit') {
-                          _showEditIncomeSourceSheet(s);
-                        }
-                        if (val == 'delete') {
-                          _state.deleteIncomeSource(s.id);
-                        }
+                        if (val == 'toggle') _state.toggleIncomeSource(s.id);
+                        if (val == 'edit') _showEditIncomeSourceSheet(s);
+                        if (val == 'delete') _state.deleteIncomeSource(s.id);
                       },
                     ),
                   ],
@@ -1259,7 +1228,7 @@ class _FinanceScreenState extends State<FinanceScreen>
     );
   }
 
-  // ====== השוואה בין חודשים ======
+  // ====== השוואה ======
   Widget _buildComparison() {
     final data = _state.monthlyComparison;
     final maxVal = data.isEmpty
@@ -1272,7 +1241,6 @@ class _FinanceScreenState extends State<FinanceScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // גרף השוואה
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -1359,8 +1327,6 @@ class _FinanceScreenState extends State<FinanceScreen>
             ),
           ),
           const SizedBox(height: 16),
-
-          // פירוט חודשי
           const Align(
             alignment: Alignment.centerRight,
             child: Text(
@@ -1512,7 +1478,7 @@ class _FinanceScreenState extends State<FinanceScreen>
     );
   }
 
-  // ====== ייצוא CSV ======
+  // ====== ייצוא ======
   void _exportCSV() {
     showModalBottomSheet(
       context: context,
@@ -1605,12 +1571,12 @@ class _FinanceScreenState extends State<FinanceScreen>
     );
   }
 
+  // ====== ייצוא אקסל ======
   Future<void> _exportToExcel() async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['תנועות'];
 
-      // כותרות
       sheet.appendRow([
         TextCellValue('תאריך'),
         TextCellValue('כותרת'),
@@ -1620,7 +1586,6 @@ class _FinanceScreenState extends State<FinanceScreen>
         TextCellValue('הערות'),
       ]);
 
-      // נתונים
       for (final t in _state.transactions) {
         sheet.appendRow([
           TextCellValue('${t.date.day}/${t.date.month}/${t.date.year}'),
@@ -1632,14 +1597,14 @@ class _FinanceScreenState extends State<FinanceScreen>
         ]);
       }
 
-      // שמירה
-      final dir = await getApplicationDocumentsDirectory();
+      final dir = await getTemporaryDirectory();
       final path =
-          '${dir.path}/פיננסים_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+          '${dir.path}/finances_${DateTime.now().millisecondsSinceEpoch}.xlsx';
       final file = File(path);
       await file.writeAsBytes(excel.encode()!);
 
-      await Share.shareXFiles([XFile(path)], subject: 'נתוני פיננסים');
+      // ✅ פתיחה ישירה ב-iOS ללא share_plus
+      await OpenFilex.open(path);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1652,14 +1617,18 @@ class _FinanceScreenState extends State<FinanceScreen>
     }
   }
 
+  // ====== ייצוא PDF ======
   Future<void> _exportToPDF() async {
     try {
+      final fontData = await rootBundle.load('assets/fonts/Heebo-Regular.ttf');
+      final ttf = pw.Font.ttf(fontData);
       final pdf = pw.Document();
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           textDirection: pw.TextDirection.rtl,
+          theme: pw.ThemeData.withFont(base: ttf),
           build: (context) => [
             pw.Header(
               level: 0,
@@ -1676,8 +1645,6 @@ class _FinanceScreenState extends State<FinanceScreen>
               'תאריך הפקה: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
             ),
             pw.SizedBox(height: 10),
-
-            // סיכום
             pw.Container(
               padding: const pw.EdgeInsets.all(10),
               decoration: pw.BoxDecoration(
@@ -1705,15 +1672,12 @@ class _FinanceScreenState extends State<FinanceScreen>
                 ],
               ),
             ),
-
             pw.SizedBox(height: 20),
             pw.Text(
               'תנועות החודש',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
             ),
             pw.SizedBox(height: 10),
-
-            // טבלת תנועות
             pw.TableHelper.fromTextArray(
               headers: ['תאריך', 'כותרת', 'סכום', 'סוג', 'קטגוריה'],
               data: _state.thisMonthTransactions
@@ -1733,14 +1697,12 @@ class _FinanceScreenState extends State<FinanceScreen>
               ),
               cellAlignment: pw.Alignment.centerRight,
             ),
-
             pw.SizedBox(height: 20),
             pw.Text(
               'מקורות הכנסה',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
             ),
             pw.SizedBox(height: 10),
-
             pw.TableHelper.fromTextArray(
               headers: ['שם', 'סוג', 'סכום', 'בעלים'],
               data: _state.incomeSources
@@ -1763,13 +1725,14 @@ class _FinanceScreenState extends State<FinanceScreen>
         ),
       );
 
-      final dir = await getApplicationDocumentsDirectory();
+      final dir = await getTemporaryDirectory();
       final path =
-          '${dir.path}/פיננסים_${DateTime.now().millisecondsSinceEpoch}.pdf';
+          '${dir.path}/finances_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final file = File(path);
       await file.writeAsBytes(await pdf.save());
 
-      await Share.shareXFiles([XFile(path)], subject: 'דוח פיננסי');
+      // ✅ פתיחה ישירה ב-iOS ללא share_plus
+      await OpenFilex.open(path);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2163,9 +2126,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2030),
                     );
-                    if (picked != null) {
-                      setModal(() => selectedDate = picked);
-                    }
+                    if (picked != null) setModal(() => selectedDate = picked);
                   },
                   child: Container(
                     padding: const EdgeInsets.all(15),
@@ -2411,8 +2372,10 @@ class _FinanceScreenState extends State<FinanceScreen>
               backgroundColor: const Color(0xFF1A1A1A),
             ),
             onPressed: () {
-              final amount = double.tryParse(controller.text) ?? 0;
-              _state.updateBudget(item.category, amount);
+              _state.updateBudget(
+                item.category,
+                double.tryParse(controller.text) ?? 0,
+              );
               Navigator.pop(ctx);
             },
             child: const Text('שמור', style: TextStyle(color: Colors.white)),
@@ -2430,7 +2393,6 @@ class _FinanceScreenState extends State<FinanceScreen>
     DateTime? targetDate;
     Color selectedColor = const Color(0xFF2193B0);
     bool isCompound = false;
-
     final colors = [
       const Color(0xFF2193B0),
       const Color(0xFF11998E),
@@ -2561,9 +2523,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                       firstDate: DateTime.now(),
                       lastDate: DateTime(2035),
                     );
-                    if (picked != null) {
-                      setModal(() => targetDate = picked);
-                    }
+                    if (picked != null) setModal(() => targetDate = picked);
                   },
                   child: Container(
                     padding: const EdgeInsets.all(15),
@@ -2665,9 +2625,7 @@ class _FinanceScreenState extends State<FinanceScreen>
             ),
             onPressed: () {
               final amount = double.tryParse(controller.text) ?? 0;
-              if (amount > 0) {
-                _state.updateSavingGoal(goal.id, amount);
-              }
+              if (amount > 0) _state.updateSavingGoal(goal.id, amount);
               Navigator.pop(ctx);
             },
             child: const Text('הוסף', style: TextStyle(color: Colors.white)),
@@ -2848,9 +2806,7 @@ class _FinanceScreenState extends State<FinanceScreen>
             ),
             onPressed: () {
               final amount = double.tryParse(controller.text) ?? 0;
-              if (amount > 0) {
-                _state.updateLoanPayment(loan.id, amount);
-              }
+              if (amount > 0) _state.updateLoanPayment(loan.id, amount);
               Navigator.pop(ctx);
             },
             child: const Text('שמור', style: TextStyle(color: Colors.white)),
