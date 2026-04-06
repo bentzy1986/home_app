@@ -1,3 +1,4 @@
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
@@ -5,7 +6,6 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart';
 import '../../main.dart';
 import 'finance_state.dart';
 import 'models/finance_models.dart';
@@ -1604,7 +1604,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       await file.writeAsBytes(excel.encode()!);
 
       // ✅ פתיחה ישירה ב-iOS ללא share_plus
-      await OpenFilex.open(path);
+      await Share.shareXFiles([XFile(path)], subject: 'נתוני פיננסים');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1624,102 +1624,106 @@ class _FinanceScreenState extends State<FinanceScreen>
       final ttf = pw.Font.ttf(fontData);
       final pdf = pw.Document();
 
+      pw.TextStyle rtlStyle(double size, {bool bold = false}) => pw.TextStyle(
+        font: ttf,
+        fontSize: size,
+        fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+      );
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          textDirection: pw.TextDirection.rtl,
-          theme: pw.ThemeData.withFont(base: ttf),
+          theme: pw.ThemeData.withFont(base: ttf, bold: ttf),
           build: (context) => [
-            pw.Header(
-              level: 0,
-              child: pw.Text(
-                'דוח פיננסי',
-                style: pw.TextStyle(
-                  fontSize: 24,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-            pw.SizedBox(height: 10),
-            pw.Text(
-              'תאריך הפקה: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-            ),
-            pw.SizedBox(height: 10),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(10),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(),
-                borderRadius: pw.BorderRadius.circular(8),
-              ),
+            pw.Directionality(
+              textDirection: pw.TextDirection.rtl,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(
-                    'סיכום חודשי',
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 16,
+                  pw.Header(
+                    level: 0,
+                    child: pw.Text(
+                      'דוח פיננסי',
+                      style: rtlStyle(24, bold: true),
                     ),
                   ),
-                  pw.SizedBox(height: 8),
+                  pw.SizedBox(height: 10),
                   pw.Text(
-                    'הכנסות: ₪${_state.monthlyIncome.toStringAsFixed(0)}',
+                    'תאריך הפקה: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                    style: rtlStyle(12),
                   ),
-                  pw.Text(
-                    'הוצאות: ₪${_state.monthlyExpenses.toStringAsFixed(0)}',
+                  pw.SizedBox(height: 10),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(),
+                      borderRadius: pw.BorderRadius.circular(8),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('סיכום חודשי', style: rtlStyle(16, bold: true)),
+                        pw.SizedBox(height: 8),
+                        pw.Text(
+                          'הכנסות: ₪${_state.monthlyIncome.toStringAsFixed(0)}',
+                          style: rtlStyle(12),
+                        ),
+                        pw.Text(
+                          'הוצאות: ₪${_state.monthlyExpenses.toStringAsFixed(0)}',
+                          style: rtlStyle(12),
+                        ),
+                        pw.Text(
+                          'יתרה: ₪${_state.balance.toStringAsFixed(0)}',
+                          style: rtlStyle(12),
+                        ),
+                      ],
+                    ),
                   ),
-                  pw.Text('יתרה: ₪${_state.balance.toStringAsFixed(0)}'),
+                  pw.SizedBox(height: 20),
+                  pw.Text('תנועות החודש', style: rtlStyle(16, bold: true)),
+                  pw.SizedBox(height: 10),
+                  pw.TableHelper.fromTextArray(
+                    headers: ['קטגוריה', 'סוג', 'סכום', 'כותרת', 'תאריך'],
+                    data: _state.thisMonthTransactions
+                        .map(
+                          (t) => [
+                            t.category.label,
+                            t.isIncome ? 'הכנסה' : 'הוצאה',
+                            '₪${t.amount.toStringAsFixed(0)}',
+                            t.title,
+                            '${t.date.day}/${t.date.month}/${t.date.year}',
+                          ],
+                        )
+                        .toList(),
+                    headerStyle: rtlStyle(12, bold: true),
+                    headerDecoration: const pw.BoxDecoration(
+                      color: PdfColors.grey300,
+                    ),
+                    cellAlignment: pw.Alignment.centerRight,
+                  ),
+                  pw.SizedBox(height: 20),
+                  pw.Text('מקורות הכנסה', style: rtlStyle(16, bold: true)),
+                  pw.SizedBox(height: 10),
+                  pw.TableHelper.fromTextArray(
+                    headers: ['בעלים', 'סכום', 'סוג', 'שם'],
+                    data: _state.incomeSources
+                        .map(
+                          (s) => [
+                            s.owner ?? '',
+                            '₪${s.amount.toStringAsFixed(0)}',
+                            s.type.label,
+                            s.name,
+                          ],
+                        )
+                        .toList(),
+                    headerStyle: rtlStyle(12, bold: true),
+                    headerDecoration: const pw.BoxDecoration(
+                      color: PdfColors.grey300,
+                    ),
+                    cellAlignment: pw.Alignment.centerRight,
+                  ),
                 ],
               ),
-            ),
-            pw.SizedBox(height: 20),
-            pw.Text(
-              'תנועות החודש',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
-            ),
-            pw.SizedBox(height: 10),
-            pw.TableHelper.fromTextArray(
-              headers: ['תאריך', 'כותרת', 'סכום', 'סוג', 'קטגוריה'],
-              data: _state.thisMonthTransactions
-                  .map(
-                    (t) => [
-                      '${t.date.day}/${t.date.month}/${t.date.year}',
-                      t.title,
-                      '₪${t.amount.toStringAsFixed(0)}',
-                      t.isIncome ? 'הכנסה' : 'הוצאה',
-                      t.category.label,
-                    ],
-                  )
-                  .toList(),
-              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              headerDecoration: const pw.BoxDecoration(
-                color: PdfColors.grey300,
-              ),
-              cellAlignment: pw.Alignment.centerRight,
-            ),
-            pw.SizedBox(height: 20),
-            pw.Text(
-              'מקורות הכנסה',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
-            ),
-            pw.SizedBox(height: 10),
-            pw.TableHelper.fromTextArray(
-              headers: ['שם', 'סוג', 'סכום', 'בעלים'],
-              data: _state.incomeSources
-                  .map(
-                    (s) => [
-                      s.name,
-                      s.type.label,
-                      '₪${s.amount.toStringAsFixed(0)}',
-                      s.owner ?? '',
-                    ],
-                  )
-                  .toList(),
-              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              headerDecoration: const pw.BoxDecoration(
-                color: PdfColors.grey300,
-              ),
-              cellAlignment: pw.Alignment.centerRight,
             ),
           ],
         ),
@@ -1731,8 +1735,7 @@ class _FinanceScreenState extends State<FinanceScreen>
       final file = File(path);
       await file.writeAsBytes(await pdf.save());
 
-      // ✅ פתיחה ישירה ב-iOS ללא share_plus
-      await OpenFilex.open(path);
+      await Share.shareXFiles([XFile(path)], subject: 'דוח פיננסי');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

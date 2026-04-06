@@ -1,3 +1,7 @@
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import 'car_state.dart';
@@ -17,7 +21,7 @@ class _CarScreenState extends State<CarScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _state.addListener(_onStateChange);
   }
 
@@ -74,6 +78,7 @@ class _CarScreenState extends State<CarScreen>
             Tab(text: 'טיפולים'),
             Tab(text: 'תזכורות'),
             Tab(text: 'הוצאות'),
+            Tab(text: 'מסמכים'),
           ],
         ),
       ),
@@ -126,6 +131,7 @@ class _CarScreenState extends State<CarScreen>
                 _buildServiceHistory(car),
                 _buildReminders(car),
                 _buildExpenses(car),
+                _buildAttachments(car),
               ],
             ),
           ),
@@ -1599,6 +1605,304 @@ class _CarScreenState extends State<CarScreen>
             child: const Text('שמור', style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+
+  // ====== טאב מסמכים ======
+  Widget _buildAttachments(CarModel car) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '${car.attachments.length} קבצים',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            TextButton.icon(
+              onPressed: () => _showAddAttachmentSheet(car),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('הוסף'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (car.attachments.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.folder_open_rounded,
+                    size: 60,
+                    color: Colors.grey.withValues(alpha: 0.4),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'אין מסמכים או תמונות',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'הוסף חשבוניות, אסמכתאות וצילומים',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ...car.attachments.map((a) => _buildAttachmentTile(car, a)),
+        const SizedBox(height: 80),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentTile(CarModel car, CarAttachment attachment) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: ListTile(
+        leading: attachment.isImage
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(attachment.filePath),
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 48,
+                    height: 48,
+                    color: Colors.grey[200],
+                    child: const Icon(
+                      Icons.broken_image_rounded,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              )
+            : Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.picture_as_pdf_rounded,
+                  color: Colors.red,
+                  size: 28,
+                ),
+              ),
+        title: Text(
+          attachment.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '${attachment.createdAt.day}/${attachment.createdAt.month}/${attachment.createdAt.year}',
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(
+                Icons.share_rounded,
+                color: Colors.blue,
+                size: 20,
+              ),
+              onPressed: () async {
+                try {
+                  final file = File(attachment.filePath);
+                  if (!await file.exists()) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('הקובץ לא נמצא'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                    return;
+                  }
+                  await Share.shareXFiles([
+                    XFile(attachment.filePath),
+                  ], subject: attachment.title);
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('שגיאה בשיתוף: $e'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline,
+                color: Colors.red,
+                size: 20,
+              ),
+              onPressed: () => _state.deleteAttachment(car.id, attachment.id),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddAttachmentSheet(CarModel car) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(25),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'הוסף מסמך או תמונה',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            _attachmentOption(
+              Icons.camera_alt_rounded,
+              'צלם תמונה',
+              Colors.blue,
+              () async {
+                Navigator.pop(context);
+                final picker = ImagePicker();
+                final image = await picker.pickImage(
+                  source: ImageSource.camera,
+                  imageQuality: 80,
+                );
+                if (image != null && mounted) {
+                  _showNameAttachmentDialog(car, image.path, true);
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+            _attachmentOption(
+              Icons.photo_library_rounded,
+              'בחר מהגלריה',
+              Colors.purple,
+              () async {
+                Navigator.pop(context);
+                final picker = ImagePicker();
+                final image = await picker.pickImage(
+                  source: ImageSource.gallery,
+                  imageQuality: 80,
+                );
+                if (image != null && mounted) {
+                  _showNameAttachmentDialog(car, image.path, true);
+                }
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNameAttachmentDialog(CarModel car, String filePath, bool isImage) {
+    final titleController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('שם המסמך', textAlign: TextAlign.right),
+        content: TextField(
+          controller: titleController,
+          textAlign: TextAlign.right,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'לדוגמה: חשבונית טיפול',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('ביטול'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A1A1A),
+            ),
+            onPressed: () async {
+              if (titleController.text.isEmpty) return;
+              Navigator.pop(ctx);
+
+              // שמירה לתיקייה קבועה
+              final appDir = await getApplicationDocumentsDirectory();
+              final fileName =
+                  '${DateTime.now().millisecondsSinceEpoch}_${titleController.text.replaceAll(' ', '_')}${isImage ? '.jpg' : '.pdf'}';
+              final savedPath = '${appDir.path}/$fileName';
+              await File(filePath).copy(savedPath);
+
+              _state.addAttachment(
+                car.id,
+                CarAttachment(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  title: titleController.text,
+                  filePath: savedPath,
+                  isImage: isImage,
+                  createdAt: DateTime.now(),
+                ),
+              );
+            },
+            child: const Text('שמור', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _attachmentOption(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Icon(icon, color: color),
+            ),
+            const SizedBox(width: 15),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

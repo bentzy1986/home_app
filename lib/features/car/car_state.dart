@@ -41,6 +41,7 @@ class CarState extends ChangeNotifier {
     'documents': c.documents.map((d) => _docToJson(d)).toList(),
     'serviceHistory': c.serviceHistory.map((s) => _recordToJson(s)).toList(),
     'reminders': c.reminders.map((r) => _reminderToJson(r)).toList(),
+    'attachments': c.attachments.map((a) => _attachmentToJson(a)).toList(),
   };
 
   CarModel _carFromJson(Map<String, dynamic> j) => CarModel(
@@ -59,6 +60,9 @@ class CarState extends ChangeNotifier {
     reminders: (j['reminders'] as List)
         .map((r) => _reminderFromJson(r))
         .toList(),
+    attachments: j['attachments'] != null
+        ? (j['attachments'] as List).map((a) => _attachmentFromJson(a)).toList()
+        : [],
   );
 
   Map<String, dynamic> _docToJson(CarDocument d) => {
@@ -115,6 +119,24 @@ class CarState extends ChangeNotifier {
     dueDate: DateTime.parse(j['dueDate']),
     dueMileage: j['dueMileage'],
     isDone: j['isDone'] ?? false,
+  );
+
+  Map<String, dynamic> _attachmentToJson(CarAttachment a) => {
+    'id': a.id,
+    'title': a.title,
+    'filePath': a.filePath,
+    'isImage': a.isImage,
+    'createdAt': a.createdAt.toIso8601String(),
+    'relatedId': a.relatedId,
+  };
+
+  CarAttachment _attachmentFromJson(Map<String, dynamic> j) => CarAttachment(
+    id: j['id'],
+    title: j['title'],
+    filePath: j['filePath'],
+    isImage: j['isImage'] ?? true,
+    createdAt: DateTime.parse(j['createdAt']),
+    relatedId: j['relatedId'],
   );
 
   // ====== ברירות מחדל ======
@@ -187,6 +209,7 @@ class CarState extends ChangeNotifier {
           dueMileage: 50000,
         ),
       ],
+      attachments: [],
     ),
     CarModel(
       id: 'c2',
@@ -240,6 +263,7 @@ class CarState extends ChangeNotifier {
           dueMileage: 65000,
         ),
       ],
+      attachments: [],
     ),
   ];
 
@@ -322,6 +346,21 @@ class CarState extends ChangeNotifier {
   void updateMileage(String carId, int mileage) {
     final car = cars.firstWhere((c) => c.id == carId);
     car.currentMileage = mileage;
+    _save();
+    notifyListeners();
+  }
+
+  // ====== פעולות מסמכים/תמונות ======
+  void addAttachment(String carId, CarAttachment attachment) {
+    final car = cars.firstWhere((c) => c.id == carId);
+    car.attachments.add(attachment);
+    _save();
+    notifyListeners();
+  }
+
+  void deleteAttachment(String carId, String attachmentId) {
+    final car = cars.firstWhere((c) => c.id == carId);
+    car.attachments.removeWhere((a) => a.id == attachmentId);
     _save();
     notifyListeners();
   }

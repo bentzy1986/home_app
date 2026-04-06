@@ -149,7 +149,6 @@ class CarDocument {
   });
 
   int get daysLeft => expiryDate.difference(DateTime.now()).inDays;
-
   bool get isExpired => daysLeft < 0;
   bool get isUrgent => daysLeft >= 0 && daysLeft <= 30;
 }
@@ -200,6 +199,25 @@ class ServiceReminder {
   bool get isOverdue => daysLeft < 0 && !isDone;
 }
 
+// ====== מסמך/תמונה מצורפת ======
+class CarAttachment {
+  final String id;
+  final String title;
+  final String filePath;
+  final bool isImage;
+  final DateTime createdAt;
+  final String? relatedId;
+
+  CarAttachment({
+    required this.id,
+    required this.title,
+    required this.filePath,
+    required this.isImage,
+    required this.createdAt,
+    this.relatedId,
+  });
+}
+
 // ====== רכב ======
 class CarModel {
   final String id;
@@ -213,6 +231,7 @@ class CarModel {
   final List<CarDocument> documents;
   final List<ServiceRecord> serviceHistory;
   final List<ServiceReminder> reminders;
+  final List<CarAttachment> attachments;
 
   CarModel({
     required this.id,
@@ -226,9 +245,9 @@ class CarModel {
     required this.documents,
     required this.serviceHistory,
     required this.reminders,
-  });
+    List<CarAttachment>? attachments,
+  }) : attachments = attachments ?? [];
 
-  // סך הוצאות השנה
   double get yearlyExpenses {
     final now = DateTime.now();
     return serviceHistory
@@ -236,15 +255,12 @@ class CarModel {
         .fold(0, (sum, s) => sum + s.cost);
   }
 
-  // סך כל ההוצאות
   double get totalExpenses => serviceHistory.fold(0, (sum, s) => sum + s.cost);
 
-  // תזכורות פעילות
   List<ServiceReminder> get activeReminders =>
       reminders.where((r) => !r.isDone).toList()
         ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
 
-  // מסמכים דחופים
   List<CarDocument> get urgentDocuments =>
       documents.where((d) => d.isUrgent || d.isExpired).toList()
         ..sort((a, b) => a.daysLeft.compareTo(b.daysLeft));
